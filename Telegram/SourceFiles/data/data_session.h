@@ -38,6 +38,10 @@ namespace Passport {
 struct SavedCredentials;
 } // namespace Passport
 
+namespace Iv {
+class Data;
+} // namespace Iv
+
 namespace Data {
 
 class Folder;
@@ -267,6 +271,7 @@ public:
 		not_null<bool*> isVisible;
 	};
 	[[nodiscard]] bool queryItemVisibility(not_null<HistoryItem*> item) const;
+	[[nodiscard]] bool queryDocumentVisibility(not_null<DocumentData*> document) const;
 	[[nodiscard]] rpl::producer<ItemVisibilityQuery> itemVisibilityQueries() const;
 	void itemVisibilitiesUpdated();
 
@@ -581,6 +586,7 @@ public:
 		PhotoData *photo,
 		DocumentData *document,
 		WebPageCollage &&collage,
+		std::unique_ptr<Iv::Data> iv,
 		int duration,
 		const QString &author,
 		bool hasLargeMedia,
@@ -858,6 +864,7 @@ private:
 		PhotoData *photo,
 		DocumentData *document,
 		WebPageCollage &&collage,
+		std::unique_ptr<Iv::Data> iv,
 		int duration,
 		const QString &author,
 		bool hasLargeMedia,

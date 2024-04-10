@@ -141,6 +141,10 @@ const std::vector<QString> &ChannelData::usernames() const {
 	return _username.usernames();
 }
 
+bool ChannelData::isUsernameEditable(QString username) const {
+	return _username.isEditable(username);
+}
+
 void ChannelData::setAccessHash(uint64 accessHash) {
 	access = accessHash;
 	input = MTP_inputPeerChannel(
@@ -1093,7 +1097,8 @@ void ApplyChannelUpdate(
 		| Flag::Location
 		| Flag::ParticipantsHidden
 		| Flag::CanGetStatistics
-		| Flag::ViewAsMessages;
+		| Flag::ViewAsMessages
+		| Flag::CanViewRevenue;
 	channel->setFlags((channel->flags() & ~mask)
 		| (update.is_can_set_username() ? Flag::CanSetUsername : Flag())
 		| (update.is_can_view_participants()
@@ -1109,7 +1114,8 @@ void ApplyChannelUpdate(
 		| (update.is_can_view_stats() ? Flag::CanGetStatistics : Flag())
 		| (update.is_view_forum_as_messages()
 			? Flag::ViewAsMessages
-			: Flag()));
+			: Flag())
+		| (update.is_can_view_revenue() ? Flag::CanViewRevenue : Flag()));
 	channel->setUserpicPhoto(update.vchat_photo());
 	if (const auto migratedFrom = update.vmigrated_from_chat_id()) {
 		channel->addFlags(Flag::Megagroup);

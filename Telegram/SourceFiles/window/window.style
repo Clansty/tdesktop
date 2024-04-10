@@ -21,7 +21,7 @@ columnMinimalWidthLeft: 260px;
 columnMaximalWidthLeft: 540px;
 columnMinimalWidthMain: 380px;
 columnMinimalWidthThird: 292px;
-columnMaximalWidthThird: 392px;
+columnMaximalWidthThird: 1176px;
 
 adaptiveChatWideWidth: 880px;
 
@@ -318,6 +318,11 @@ windowArchiveToast: Toast(defaultToast) {
 	minWidth: boxWideWidth;
 	maxWidth: boxWideWidth;
 }
+
+ivWidthMin: 380px;
+ivHeightMin: 480px;
+ivWidthDefault: 600px;
+ivHeightDefault: 800px;
 
 // Windows specific
 

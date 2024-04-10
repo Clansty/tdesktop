@@ -1,10 +1,7 @@
 {%- set GIT = "https://github.com" -%}
 {%- set GIT_FREEDESKTOP = GIT ~ "/gitlab-freedesktop-mirrors" -%}
-{%- set QT = "6.6.2" -%}
+{%- set QT = "6.7.0" -%}
 {%- set QT_TAG = "v" ~ QT -%}
-{%- set QT_PREFIX = "/usr/local/desktop-app/Qt-" ~ QT -%}
-{%- set OPENSSL_VER = "1_1_1" -%}
-{%- set OPENSSL_PREFIX = "/usr/local/desktop-app/openssl-1.1.1" -%}
 {%- set CMAKE_VER = "3.27.6" -%}
 {%- set CMAKE_FILE = "cmake-" ~ CMAKE_VER ~ "-Linux-x86_64.sh" -%}
 {%- set CFLAGS_DEBUG = "-g -pipe -fPIC -fstack-protector-all -fstack-clash-protection -fcf-protection -D_GLIBCXX_ASSERTIONS" -%}
@@ -22,13 +19,13 @@ ENV PKG_CONFIG_PATH /usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:/usr/loc
 RUN dnf -y install epel-release \
 	&& dnf config-manager --set-enabled powertools \
 	&& dnf -y install autoconf automake libtool pkgconfig make patch git \
-		python3.11-pip python3.11-devel gperf flex bison clang lld yasm \
-		file which perl-open perl-XML-Parser xorg-x11-util-macros \
+		python3.11-pip python3.11-devel gperf flex bison clang lld nasm yasm \
+		file which perl-open perl-XML-Parser perl-IPC-Cmd xorg-x11-util-macros \
 		gcc-toolset-12-gcc gcc-toolset-12-gcc-c++ gcc-toolset-12-binutils \
-		libffi-devel fontconfig-devel freetype-devel libX11-devel \
-		alsa-lib-devel pulseaudio-libs-devel mesa-libGL-devel mesa-libEGL-devel \
-		mesa-libgbm-devel libdrm-devel vulkan-devel libva-devel libvdpau-devel \
-		glib2-devel at-spi2-core-devel gtk3-devel boost1.78-devel fmt-devel \
+		gcc-toolset-12-libasan-devel libffi-devel fontconfig-devel freetype-devel \
+		libX11-devel alsa-lib-devel pulseaudio-libs-devel mesa-libGL-devel \
+		mesa-libEGL-devel mesa-libgbm-devel libdrm-devel vulkan-devel libva-devel \
+		libvdpau-devel glib2-devel at-spi2-core-devel gtk3-devel boost1.78-devel fmt-devel \
 	&& dnf clean all
 
 SHELL [ "bash", "-c", ". /opt/rh/gcc-toolset-12/enable; exec bash -c \"$@\"", "-s"]
@@ -54,20 +51,9 @@ FROM builder AS patches
 RUN git init patches \
 	&& cd patches \
 	&& git remote add origin {{ GIT }}/desktop-app/patches.git \
-	&& git fetch --depth=1 origin 0edd8a93409ca24e215fc8ba1e98814893ad05cf \
+	&& git fetch --depth=1 origin b8e22ca1511513024b22b5381153163ad3406a8c \
 	&& git reset --hard FETCH_HEAD \
 	&& rm -rf .git
-
-FROM builder AS nasm
-RUN git clone -b nasm-2.15.05 --depth=1 {{ GIT }}/netwide-assembler/nasm.git \
-	&& cd nasm \
-	&& ./autogen.sh \
-	&& ./configure \
-	&& make -j$(nproc) \
-	&& mkdir -p "{{ LibrariesPath }}/nasm-cache/usr/local/bin" \
-	&& install -c nasm "{{ LibrariesPath }}/nasm-cache/usr/local/bin/nasm" \
-	&& cd .. \
-	&& rm -rf nasm
 
 FROM builder AS zlib
 RUN git init zlib \
@@ -82,7 +68,7 @@ RUN git init zlib \
 	&& rm -rf zlib
 
 FROM builder AS xz
-RUN git clone -b v5.4.4 --depth=1 {{ GIT }}/tukaani-project/xz.git \
+RUN git clone -b v5.4.4 --depth=1 https://git.tukaani.org/xz.git \
 	&& cd xz \
 	&& cmake -B build . -DCMAKE_BUILD_TYPE=None \
 	&& cmake --build build -j$(nproc) \
@@ -169,9 +155,7 @@ RUN git clone -b v1.4 --depth=1 {{ GIT }}/xiph/opus.git \
 	&& rm -rf opus
 
 FROM builder AS dav1d
-COPY --link --from=nasm {{ LibrariesPath }}/nasm-cache /
-
-RUN git clone -b 1.2.1 --depth=1 {{ GIT }}/videolan/dav1d.git \
+RUN git clone -b 1.4.1 --depth=1 {{ GIT }}/videolan/dav1d.git \
 	&& cd dav1d \
 	&& meson build \
 		--buildtype=plain \
@@ -184,7 +168,7 @@ RUN git clone -b 1.2.1 --depth=1 {{ GIT }}/videolan/dav1d.git \
 	&& rm -rf dav1d
 
 FROM builder AS libde265
-RUN git clone -b v1.0.12 --depth=1 {{ GIT }}/strukturag/libde265.git \
+RUN git clone -b v1.0.15 --depth=1 {{ GIT }}/strukturag/libde265.git \
 	&& cd libde265 \
 	&& cmake -GNinja . \
 		-DCMAKE_BUILD_TYPE=None \
@@ -238,7 +222,7 @@ RUN git clone -b chrome-m116-5845 --depth=1 {{ GIT }}/webmproject/libwebp.git \
 FROM builder AS libavif
 COPY --link --from=dav1d {{ LibrariesPath }}/dav1d-cache /
 
-RUN git clone -b v1.0.1 --depth=1 {{ GIT }}/AOMediaCodec/libavif.git \
+RUN git clone -b v1.0.4 --depth=1 {{ GIT }}/AOMediaCodec/libavif.git \
 	&& cd libavif \
 	&& cmake -GNinja -B build . \
 		-DCMAKE_BUILD_TYPE=None \
@@ -252,11 +236,12 @@ RUN git clone -b v1.0.1 --depth=1 {{ GIT }}/AOMediaCodec/libavif.git \
 FROM builder AS libheif
 COPY --link --from=libde265 {{ LibrariesPath }}/libde265-cache /
 
-RUN git clone -b v1.16.2 --depth=1 {{ GIT }}/strukturag/libheif.git \
+RUN git clone -b v1.17.6 --depth=1 {{ GIT }}/strukturag/libheif.git \
 	&& cd libheif \
 	&& cmake -GNinja -B build . \
 		-DCMAKE_BUILD_TYPE=None \
 		-DBUILD_SHARED_LIBS=OFF \
+		-DBUILD_TESTING=OFF \
 		-DENABLE_PLUGIN_LOADING=OFF \
 		-DWITH_X265=OFF \
 		-DWITH_AOM_DECODER=OFF \
@@ -481,7 +466,7 @@ RUN git clone -b 1.19.0 --depth=1 {{ GIT_FREEDESKTOP }}/wayland.git \
 	&& rm -rf wayland
 
 FROM builder AS nv-codec-headers
-RUN git clone -b n12.0.16.0 --depth=1 {{ GIT }}/FFmpeg/nv-codec-headers.git \
+RUN git clone -b n12.1.14.0 --depth=1 {{ GIT }}/FFmpeg/nv-codec-headers.git \
 	&& DESTDIR="{{ LibrariesPath }}/nv-codec-headers-cache" make -C nv-codec-headers install \
 	&& rm -rf nv-codec-headers
 
@@ -493,7 +478,7 @@ COPY --link --from=libXext {{ LibrariesPath }}/libXext-cache /
 COPY --link --from=libXv {{ LibrariesPath }}/libXv-cache /
 COPY --link --from=nv-codec-headers {{ LibrariesPath }}/nv-codec-headers-cache /
 
-RUN git clone -b n5.1.3 --depth=1 {{ GIT }}/FFmpeg/FFmpeg.git \
+RUN git clone -b n6.1.1 --depth=1 {{ GIT }}/FFmpeg/FFmpeg.git \
 	&& cd FFmpeg \
 	&& ./configure \
 		--extra-cflags="-DCONFIG_SAFE_BITSTREAM_READER=1" \
@@ -606,6 +591,7 @@ RUN git clone -b n5.1.3 --depth=1 {{ GIT }}/FFmpeg/FFmpeg.git \
 		--enable-parser=aac \
 		--enable-parser=aac_latm \
 		--enable-parser=flac \
+		--enable-parser=gif \
 		--enable-parser=h264 \
 		--enable-parser=hevc \
 		--enable-parser=mpeg4video \
@@ -660,18 +646,16 @@ RUN git clone -b 1.23.1 --depth=1 {{ GIT }}/kcat/openal-soft.git \
 	&& rm -rf openal-soft
 
 FROM builder AS openssl
-ENV opensslDir openssl_{{ OPENSSL_VER }}
-RUN git clone -b OpenSSL_{{ OPENSSL_VER }}-stable --depth=1 {{ GIT }}/openssl/openssl.git $opensslDir \
-	&& cd $opensslDir \
+RUN git clone -b openssl-3.2.1 --depth=1 {{ GIT }}/openssl/openssl.git \
+	&& cd openssl \
 	&& ./config \
-		--prefix="{{ OPENSSL_PREFIX }}" \
 		--openssldir=/etc/ssl \
 		no-tests \
 		no-dso \
 	&& make -j$(nproc) \
 	&& make DESTDIR="{{ LibrariesPath }}/openssl-cache" install_sw \
 	&& cd .. \
-	&& rm -rf $opensslDir
+	&& rm -rf openssl
 
 FROM builder AS xkbcommon
 COPY --link --from=xcb {{ LibrariesPath }}/xcb-cache /
@@ -705,27 +689,6 @@ RUN git clone -b 2.78.1 --depth=1 {{ GIT }}/GNOME/glib.git \
 	&& cd .. \
 	&& rm -rf glib
 
-FROM patches AS glibmm
-COPY --link --from=glib {{ LibrariesPath }}/glib-cache /
-
-RUN git clone -b 2.78.0 --depth=1 {{ GIT }}/GNOME/glibmm.git \
-	&& cd glibmm \
-	&& git apply ../patches/glibmm.patch \
-	&& CFLAGS="$CFLAGS {{ CFLAGS_LTO }}" CXXFLAGS="$CXXFLAGS {{ CFLAGS_LTO }}" meson build \
-		--buildtype=plain \
-		--default-library=both \
-		-Dbuild-documentation=false \
-		-Dbuild-examples=false \
-		-Dsigc++-3.0:build-documentation=false \
-		-Dsigc++-3.0:build-examples=false \
-		-Dsigc++-3.0:build-tests=false \
-		-Dsigc++-3.0:validation=false \
-		-Dmm-common:use-network=true \
-	&& meson compile -C build \
-	&& DESTDIR="{{ LibrariesPath }}/glibmm-cache" meson install -C build \
-	&& cd .. \
-	&& rm -rf glibmm
-
 FROM builder AS gobject-introspection
 COPY --link --from=glib {{ LibrariesPath }}/glib-cache /
 
@@ -753,17 +716,15 @@ COPY --link --from=openssl {{ LibrariesPath }}/openssl-cache /
 COPY --link --from=xkbcommon {{ LibrariesPath }}/xkbcommon-cache /
 COPY --link --from=libwebp {{ LibrariesPath }}/libwebp-cache /
 
-ENV OPENSSL_ROOT_DIR {{ OPENSSL_PREFIX }}
-
-RUN git clone -b {{ QT_TAG }} --depth=1 {{ GIT }}/qt/qt5.git qt_{{ QT }} \
-	&& cd qt_{{ QT }} \
+RUN git clone -b {{ QT_TAG }} --depth=1 {{ GIT }}/qt/qt5.git \
+	&& cd qt5 \
 	&& git submodule update --init --recursive --depth=1 qtbase qtdeclarative qtwayland qtimageformats qtsvg qtshadertools \
 	&& cd qtbase \
 	&& find ../../patches/qtbase_{{ QT }} -type f -print0 | sort -z | xargs -r0 git apply \
 	&& cd ../qtwayland \
 	&& find ../../patches/qtwayland_{{ QT }} -type f -print0 | sort -z | xargs -r0 git apply \
 	&& cd .. \
-	&& ./configure -prefix "{{ QT_PREFIX }}" \
+	&& ./configure \
 		CMAKE_BUILD_TYPE=None \
 		-opensource \
 		-confirm-license \
@@ -782,10 +743,10 @@ RUN git clone -b {{ QT_TAG }} --depth=1 {{ GIT }}/qt/qt5.git qt_{{ QT }} \
 	&& cmake --build . --parallel \
 	&& DESTDIR="{{ LibrariesPath }}/qt-cache" cmake --install . \
 	&& cd .. \
-	&& rm -rf qt_{{ QT }}
+	&& rm -rf qt5
 
 FROM builder AS breakpad
-RUN git clone -b v2023.01.27 --depth=1 https://chromium.googlesource.com/breakpad/breakpad.git \
+RUN git clone -b v2023.06.01 --depth=1 https://chromium.googlesource.com/breakpad/breakpad.git \
 	&& cd breakpad \
 	&& git clone -b v2022.10.12 --depth=1 https://chromium.googlesource.com/linux-syscall-support.git src/third_party/lss \
 	&& env -u CFLAGS -u CXXFLAGS ./configure \
@@ -818,7 +779,7 @@ RUN git init tg_owt \
 		-DCMAKE_CXX_FLAGS_DEBUG="{{ CFLAGS_DEBUG }}" \
 		-DTG_OWT_SPECIAL_TARGET=linux \
 		-DTG_OWT_LIBJPEG_INCLUDE_PATH=/usr/local/include \
-		-DTG_OWT_OPENSSL_INCLUDE_PATH={{ OPENSSL_PREFIX }}/include \
+		-DTG_OWT_OPENSSL_INCLUDE_PATH=/usr/local/include \
 		-DTG_OWT_OPUS_INCLUDE_PATH=/usr/local/include/opus \
 		-DTG_OWT_LIBVPX_INCLUDE_PATH=/usr/local/include \
 		-DTG_OWT_FFMPEG_INCLUDE_PATH=/usr/local/include
@@ -873,7 +834,6 @@ COPY --link --from=openal {{ LibrariesPath }}/openal-cache /
 COPY --link --from=openssl {{ LibrariesPath }}/openssl-cache /
 COPY --link --from=xkbcommon {{ LibrariesPath }}/xkbcommon-cache /
 COPY --link --from=glib {{ LibrariesPath }}/glib-cache /
-COPY --link --from=glibmm {{ LibrariesPath }}/glibmm-cache /
 COPY --link --from=gobject-introspection {{ LibrariesPath }}/gobject-introspection-cache /
 COPY --link --from=qt {{ LibrariesPath }}/qt-cache /
 COPY --link --from=breakpad {{ LibrariesPath }}/breakpad-cache /
@@ -887,7 +847,6 @@ COPY --link --from=webrtc_debug {{ LibrariesPath }}/tg_owt/out/Debug tg_owt/out/
 
 WORKDIR ../tdesktop
 ENV QT {{ QT }}
-ENV OPENSSL_ROOT_DIR {{ OPENSSL_PREFIX }}
 ENV BOOST_INCLUDEDIR /usr/include/boost1.78
 ENV BOOST_LIBRARYDIR /usr/lib64/boost1.78
 

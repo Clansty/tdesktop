@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/stickers/data_custom_emoji.h"
 #include "data/data_session.h"
 #include "data/data_sponsored_messages.h"
+#include "iv/iv_instance.h"
 #include "ui/text/text_custom_emoji.h"
 #include "ui/basic_click_handlers.h"
 #include "ui/emoji_config.h"
@@ -50,8 +51,13 @@ const auto kBadPrefix = u"http://"_q;
 [[nodiscard]] QString UrlWithAutoLoginToken(
 		const QString &url,
 		QUrl parsed,
-		const QString &domain) {
-	const auto &active = Core::App().activeAccount();
+		const QString &domain,
+		QVariant context) {
+	const auto my = context.value<ClickHandlerContext>();
+	const auto window = my.sessionWindow.get();
+	const auto &active = window
+		? window->session().account()
+		: Core::App().activeAccount();
 	const auto token = active.mtp().configValues().autologinToken;
 	const auto domains = active.appConfig().get<std::vector<QString>>(
 		"autologin_domains",
@@ -232,13 +238,21 @@ bool UiIntegration::handleUrlClick(
 	} else if (local.startsWith(u"internal:"_q, Qt::CaseInsensitive)) {
 		Core::App().openInternalUrl(local, context);
 		return true;
+	} else if (Iv::PreferForUri(url)
+		&& !context.value<ClickHandlerContext>().ignoreIv) {
+		const auto my = context.value<ClickHandlerContext>();
+		if (const auto controller = my.sessionWindow.get()) {
+			Core::App().iv().openWithIvPreferred(controller, url, context);
+			return true;
+		}
 	}
 
 	auto parsed = UrlForAutoLogin(url);
 	const auto domain = DomainForAutoLogin(parsed);
 	const auto skip = context.value<ClickHandlerContext>().skipBotAutoLogin;
 	if (skip || !BotAutoLogin(url, domain, context)) {
-		File::OpenUrl(UrlWithAutoLoginToken(url, std::move(parsed), domain));
+		File::OpenUrl(
+			UrlWithAutoLoginToken(url, std::move(parsed), domain, context));
 	}
 	return true;
 }

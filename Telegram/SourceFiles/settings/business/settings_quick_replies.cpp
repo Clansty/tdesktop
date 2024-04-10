@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 #include "data/business/data_shortcut_messages.h"
 #include "data/data_session.h"
+#include "history/view/history_view_context_menu.h" // AddLengthLimitLabel.
 #include "lang/lang_keys.h"
 #include "main/main_account.h"
 #include "main/main_session.h"
@@ -30,6 +31,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace Settings {
 namespace {
+
+constexpr auto kShortcutLimit = 32;
 
 class QuickReplies : public BusinessSection<QuickReplies> {
 public:
@@ -108,8 +111,10 @@ void QuickReplies::setupContent(
 					showOther(ShortcutMessagesId(id));
 					close();
 				};
-				controller->show(
-					Box(EditShortcutNameBox, QString(), crl::guard(this, submit)));
+				controller->show(Box(
+					EditShortcutNameBox,
+					QString(),
+					crl::guard(this, submit)));
 			});
 			if (count > 0) {
 				AddSkip(addWrap);
@@ -162,7 +167,7 @@ void QuickReplies::setupContent(
 }
 
 [[nodiscard]] bool ValidShortcutName(const QString &name) {
-	if (name.isEmpty() || name.size() > 32) {
+	if (name.isEmpty() || name.size() > kShortcutLimit) {
 		return false;
 	}
 	for (const auto &ch : name) {
@@ -207,6 +212,9 @@ void EditShortcutNameBox(
 		field->setFocusFast();
 	});
 	field->selectAll();
+	field->setMaxLength(kShortcutLimit * 2);
+
+	HistoryView::AddLengthLimitLabel(field, kShortcutLimit);
 
 	const auto callback = [=] {
 		const auto name = field->getLastText().trimmed();
