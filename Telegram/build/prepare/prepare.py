@@ -1408,7 +1408,7 @@ if buildQt5:
     stage('qt_5_15_12', """
     git clone -b v5.15.12-lts-lgpl https://github.com/qt/qt5.git qt_5_15_12
     cd qt_5_15_12
-    perl init-repository.pl --module-subset=qtbase,qtimageformats,qtsvg
+    perl init-repository --module-subset=qtbase,qtimageformats,qtsvg
 depends:patches/qtbase_5.15.12/*.patch
     cd qtbase
 win:
