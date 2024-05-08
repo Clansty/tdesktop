@@ -7,12 +7,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_inner_widget.h"
 
+#include "chat_helpers/stickers_emoji_pack.h"
 #include "core/file_utilities.h"
 #include <core/shortcuts.h>
 #include "core/click_handler_types.h"
 #include "history/history_item_helpers.h"
 #include "history/view/controls/history_view_forward_panel.h"
 #include "history/view/controls/history_view_draft_options.h"
+#include "boxes/moderate_messages_box.h"
 #include "history/view/media/history_view_sticker.h"
 #include "history/view/media/history_view_web_page.h"
 #include "history/view/reactions/history_view_reactions_button.h"
@@ -35,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/reaction_fly_animation.h"
 #include "ui/text/text_options.h"
 #include "ui/text/text_entity.h"
+#include "ui/text/text_isolated_emoji.h"
 #include "ui/boxes/report_box.h"
 #include "ui/layers/generic_box.h"
 #include "ui/controls/delete_message_context_action.h"
@@ -74,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_who_reacted.h"
 #include "api/api_views.h"
 #include "lang/lang_keys.h"
+#include "data/components/sponsored_messages.h"
 #include "data/data_session.h"
 #include "data/data_document.h"
 #include "data/data_channel.h"
@@ -85,7 +89,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_file_click_handler.h"
 #include "data/data_histories.h"
 #include "data/data_changes.h"
-#include "data/data_sponsored_messages.h"
 #include "dialogs/ui/dialogs_video_userpic.h"
 #include "styles/style_chat.h"
 #include "styles/style_menu_icons.h"
@@ -125,7 +128,7 @@ void FillSponsoredMessagesMenu(
 		not_null<Window::SessionController*> controller,
 		FullMsgId itemId,
 		not_null<Ui::PopupMenu*> menu) {
-	const auto &data = controller->session().data().sponsoredMessages();
+	const auto &data = controller->session().sponsoredMessages();
 	const auto info = data.lookupDetails(itemId).info;
 	const auto show = controller->uiShow();
 	if (!info.empty()) {
@@ -988,7 +991,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
 			: yShown(top + height / 2);
 		if (markShown) {
 			if (isSponsored) {
-				session().data().sponsoredMessages().view(item->fullId());
+				session().sponsoredMessages().view(item->fullId());
 			} else if (isUnread) {
 				readTill = item;
 			}
@@ -2308,6 +2311,20 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			}, &st::menuIconStickers);
 		}
 	};
+
+#ifdef _DEBUG // Sometimes we need to save emoji to files.
+	if (const auto item = _dragStateItem) {
+		const auto emojiStickers = &session->emojiStickersPack();
+		if (const auto view = item->media() ? nullptr : item->mainView()) {
+			if (const auto isolated = view->isolatedEmoji()) {
+				if (const auto sticker = emojiStickers->stickerForEmoji(
+						isolated)) {
+					addDocumentActions(sticker.document, item);
+				}
+			}
+		}
+	}
+#endif
 
 	const auto asGroup = !Element::Moused()
 		|| (Element::Moused() != Element::Hovered())
@@ -4625,8 +4642,13 @@ void HistoryInner::deleteItem(not_null<HistoryItem*> item) {
 		_controller->cancelUploadLayer(item);
 		return;
 	}
-	const auto suggestModerateActions = true;
-	_controller->show(Box<DeleteMessagesBox>(item, suggestModerateActions));
+	const auto list = HistoryItemsList{ item };
+	if (CanCreateModerateMessagesBox(list)) {
+		_controller->show(Box(CreateModerateMessagesBox, list, nullptr));
+	} else {
+		const auto suggestModerate = false;
+		_controller->show(Box<DeleteMessagesBox>(item, suggestModerate));
+	}
 }
 
 bool HistoryInner::hasPendingResizedItems() const {

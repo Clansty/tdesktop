@@ -87,6 +87,8 @@ PRIVATE
     dialogs/dialogs_three_state_icon.h
     dialogs/ui/dialogs_stories_list.cpp
     dialogs/ui/dialogs_stories_list.h
+    dialogs/ui/top_peers_strip.cpp
+    dialogs/ui/top_peers_strip.h
 
     editor/controllers/undo_controller.cpp
     editor/controllers/undo_controller.h
@@ -205,6 +207,7 @@ PRIVATE
     statistics/statistics_data_deserialize.h
     statistics/statistics_format_values.cpp
     statistics/statistics_format_values.h
+    statistics/statistics_types.h
     statistics/view/abstract_chart_view.cpp
     statistics/view/abstract_chart_view.h
     statistics/view/bar_chart_view.cpp
@@ -236,6 +239,8 @@ PRIVATE
     ui/boxes/calendar_box.h
     ui/boxes/choose_date_time.cpp
     ui/boxes/choose_date_time.h
+    ui/boxes/choose_font_box.cpp
+    ui/boxes/choose_font_box.h
     ui/boxes/choose_language_box.cpp
     ui/boxes/choose_language_box.h
     ui/boxes/choose_time.cpp
@@ -382,6 +387,8 @@ PRIVATE
     ui/widgets/discrete_sliders.h
     ui/widgets/gradient_round_button.cpp
     ui/widgets/gradient_round_button.h
+    ui/widgets/level_meter.cpp
+    ui/widgets/level_meter.h
     ui/widgets/multi_select.cpp
     ui/widgets/multi_select.h
     ui/widgets/sent_code_field.cpp

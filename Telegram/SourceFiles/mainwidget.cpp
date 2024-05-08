@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "api/api_updates.h"
 #include "api/api_views.h"
+#include "data/components/scheduled_messages.h"
 #include "data/data_document_media.h"
 #include "data/data_document_resolver.h"
 #include "data/data_forum_topic.h"
@@ -22,7 +23,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_chat.h"
 #include "data/data_user.h"
 #include "data/data_chat_filters.h"
-#include "data/data_scheduled_messages.h"
 #include "data/data_file_origin.h"
 #include "data/data_histories.h"
 #include "data/stickers/data_stickers.h"
@@ -296,11 +296,11 @@ MainWidget::MainWidget(
 		_player->finishAnimating();
 	}
 
-	rpl::merge(
-		_controller->dialogsListFocusedChanges(),
-		_controller->dialogsListDisplayForcedChanges()
+	_controller->chatsForceDisplayWideChanges(
 	) | rpl::start_with_next([=] {
-		updateDialogsWidthAnimated();
+		crl::on_main(this, [=] {
+			updateDialogsWidthAnimated();
+		});
 	}, lifetime());
 
 	rpl::merge(
@@ -811,6 +811,13 @@ void MainWidget::createPlayer() {
 		});
 		_player->entity()->setShowItemCallback([=](
 				not_null<const HistoryItem*> item) {
+			const auto peer = item->history()->peer;
+			if (const auto window = Core::App().windowFor(peer)) {
+				if (const auto controller = window->sessionController()) {
+					controller->showMessage(item);
+					return;
+				}
+			}
 			_controller->showMessage(item);
 		});
 
@@ -1160,7 +1167,9 @@ Image *MainWidget::newBackgroundThumb() {
 }
 
 void MainWidget::setInnerFocus() {
-	if (_hider || !_history->peer()) {
+	if (_dialogs && _dialogs->searchHasFocus()) {
+		_dialogs->setInnerFocus();
+	} else if (_hider || !_history->peer()) {
 		if (!_hider && _mainSection) {
 			_mainSection->setInnerFocus();
 		} else if (!_hider && _thirdSection) {
@@ -1171,10 +1180,8 @@ void MainWidget::setInnerFocus() {
 		}
 	} else if (_mainSection) {
 		_mainSection->setInnerFocus();
-	} else if (_history->peer() || !_thirdSection) {
-		_history->setInnerFocus();
 	} else {
-		_thirdSection->setInnerFocus();
+		_history->setInnerFocus();
 	}
 }
 
@@ -1308,7 +1315,6 @@ void MainWidget::showHistory(
 		}
 	}
 
-	_controller->setDialogsListFocused(false);
 	_a_dialogsWidth.stop();
 
 	using Way = SectionShow::Way;
@@ -1701,7 +1707,6 @@ void MainWidget::showNewSection(
 		_controller->window().hideSettingsAndLayer();
 	}
 
-	_controller->setDialogsListFocused(false);
 	_a_dialogsWidth.stop();
 
 	auto mainSectionTop = getMainSectionTop();
@@ -2615,31 +2620,41 @@ void MainWidget::returnTabbedSelector() {
 	}
 }
 
+bool MainWidget::relevantForDialogsFocus(not_null<QWidget*> widget) const {
+	if (!_dialogs || widget->window() != window()) {
+		return false;
+	}
+	while (true) {
+		if (widget.get() == this) {
+			return true;
+		}
+		const auto parent = widget->parentWidget();
+		if (!parent) {
+			return false;
+		}
+		widget = parent;
+	}
+	Unexpected("Should never be here.");
+}
+
 bool MainWidget::eventFilter(QObject *o, QEvent *e) {
 	const auto widget = o->isWidgetType()
 		? static_cast<QWidget*>(o)
 		: nullptr;
 	if (e->type() == QEvent::FocusIn) {
-		if (widget && (widget->window() == window())) {
-			if (_history == widget || _history->isAncestorOf(widget)
-				|| (_mainSection
-					&& (_mainSection == widget
-						|| _mainSection->isAncestorOf(widget)))
-				|| (_thirdSection
-					&& (_thirdSection == widget
-						|| _thirdSection->isAncestorOf(widget)))) {
-				_controller->setDialogsListFocused(false);
-			} else if (_dialogs
-				&& (_dialogs == widget
-					|| _dialogs->isAncestorOf(widget))) {
-				_controller->setDialogsListFocused(true);
-			}
+		if (widget && relevantForDialogsFocus(widget)) {
+			_dialogs->updateHasFocus(widget);
+		} else if (widget == window()) {
+			crl::on_main(this, [=] {
+				_controller->widget()->setInnerFocus();
+			});
 		}
 	} else if (e->type() == QEvent::MouseButtonPress) {
 		if (widget && (widget->window() == window())) {
 			const auto event = static_cast<QMouseEvent*>(e);
 			if (event->button() == Qt::BackButton) {
-				if (!Core::App().hideMediaView()) {
+				if (!Core::App().hideMediaView()
+					&& (!_dialogs || !_dialogs->cancelSearchByMouseBack())) {
 					handleHistoryBack();
 				}
 				return true;
@@ -2742,7 +2757,7 @@ void MainWidget::updateWindowAdaptiveLayout() {
 
 	auto useSmallColumnWidth = !isOneColumn()
 		&& !dialogsWidthRatio
-		&& !_controller->forceWideDialogs();
+		&& !_controller->chatsForceDisplayWide();
 	_dialogsWidth = !_dialogs
 		? 0
 		: useSmallColumnWidth

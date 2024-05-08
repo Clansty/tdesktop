@@ -913,7 +913,7 @@ void PreviewBox(
 	auto businessOrder = Settings::BusinessFeaturesOrder(&show->session());
 	state->order = ranges::contains(businessOrder, descriptor.section)
 		? std::move(businessOrder)
-		: ranges::contains(businessOrder, descriptor.section)
+		: ranges::contains(premiumOrder, descriptor.section)
 		? std::move(premiumOrder)
 		: std::vector{ descriptor.section };
 
@@ -1240,8 +1240,8 @@ void DecorateListPromoBox(
 		box->setStyle(st::premiumPreviewDoubledLimitsBox);
 		box->widthValue(
 		) | rpl::start_with_next([=](int width) {
-			const auto &padding =
-				st::premiumPreviewDoubledLimitsBox.buttonPadding;
+			const auto &padding
+				= st::premiumPreviewDoubledLimitsBox.buttonPadding;
 			button->resizeToWidth(width
 				- padding.left()
 				- padding.right());

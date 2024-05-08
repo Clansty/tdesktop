@@ -7,12 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
-namespace Platform {
-namespace File {
-namespace internal {
+namespace Statistic {
 
-bool ShowXDPOpenWithDialog(const QString &filepath);
+using ChartValue = int64;
 
-} // namespace internal
-} // namespace File
-} // namespace Platform
+} // namespace Statistic

@@ -25,10 +25,6 @@ struct HistoryMessageMarkupData;
 class HistoryMainElementDelegateMixin;
 struct LanguageId;
 
-namespace Main {
-class Session;
-} // namespace Main
-
 namespace Data {
 struct Draft;
 class Session;
@@ -193,7 +189,8 @@ public:
 		MsgId id,
 		const MTPMessage &message,
 		MessageFlags localFlags,
-		bool detachExistingItem);
+		bool detachExistingItem = false,
+		bool newMessage = false);
 	std::vector<not_null<HistoryItem*>> createItems(
 		const QVector<MTPMessage> &data);
 
