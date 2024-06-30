@@ -524,6 +524,10 @@ void CreateModerateMessagesBox(
 				not_null<ChannelData*> c) {
 			p->session().api().deleteAllFromParticipant(c, p);
 		});
+
+		if (GetEnhancedInt("always_delete_for") == 1 || GetEnhancedInt("always_delete_for") == 3) {
+			deleteAll->setChecked(true);
+		}
 	}
 	if (allCanBan) {
 		auto ownedWrap = object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
@@ -825,7 +829,7 @@ void DeleteChatBox(not_null<Ui::GenericBox*> box, not_null<PeerData*> peer) {
 					: tr::lng_delete_for_everyone_check(
 						tr::now,
 						Ui::Text::WithEntities),
-				false,
+				GetEnhancedInt("always_delete_for") == 2 || GetEnhancedInt("always_delete_for") == 3,
 				st::defaultBoxCheckbox));
 	}();
 

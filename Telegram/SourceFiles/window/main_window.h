@@ -98,8 +98,6 @@ public:
 	}
 	void positionUpdated();
 
-	void reActivateWindow();
-
 	void showRightColumn(object_ptr<TWidget> widget);
 	int maximalExtendBy() const;
 	bool canExtendNoMove(int extendBy) const;
@@ -119,7 +117,8 @@ public:
 
 	void launchDrag(std::unique_ptr<QMimeData> data, Fn<void()> &&callback);
 
-	rpl::producer<> leaveEvents() const;
+	[[nodiscard]] rpl::producer<> leaveEvents() const;
+	[[nodiscard]] rpl::producer<> imeCompositionStarts() const;
 
 	virtual void updateWindowIcon() = 0;
 	void updateTitle();
@@ -142,6 +141,10 @@ public:
 		Core::WindowPosition position,
 		Core::WindowPosition initial,
 		QSize minSize) const;
+
+	[[nodiscard]] virtual rpl::producer<QPoint> globalForceClicks() {
+		return rpl::never<QPoint>();
+	}
 
 protected:
 	void leaveEventHook(QEvent *e) override;
@@ -185,6 +188,7 @@ protected:
 		return false;
 	}
 
+	void imeCompositionStartReceived();
 	void setPositionInited();
 
 	virtual QRect computeDesktopRect() const;
@@ -214,6 +218,7 @@ private:
 	bool _isActive = false;
 
 	rpl::event_stream<> _leaveEvents;
+	rpl::event_stream<> _imeCompositionStartReceived;
 
 	bool _maximizedBeforeHide = false;
 
