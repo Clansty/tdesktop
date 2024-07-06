@@ -513,7 +513,7 @@ private:
 	int countMembersDropdownHeightMax() const;
 
 	void updateReplyToName();
-	bool editingMessage() const {
+	[[nodiscard]] bool editingMessage() const {
 		return _editMsgId != 0;
 	}
 
