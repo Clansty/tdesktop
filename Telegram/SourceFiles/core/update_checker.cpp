@@ -59,11 +59,7 @@ namespace {
 constexpr auto kUpdaterTimeout = 10 * crl::time(1000);
 constexpr auto kMaxResponseSize = 1024 * 1024;
 
-#ifdef TDESKTOP_DISABLE_AUTOUPDATE
 bool UpdaterIsDisabled = true;
-#else // TDESKTOP_DISABLE_AUTOUPDATE
-bool UpdaterIsDisabled = false;
-#endif // TDESKTOP_DISABLE_AUTOUPDATE
 
 std::weak_ptr<Updater> UpdaterInstance;
 
