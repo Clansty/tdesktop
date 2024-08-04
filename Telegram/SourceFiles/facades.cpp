@@ -70,18 +70,18 @@ void searchByHashtag(const QString &tag, PeerData *inPeer, PeerData *from) {
 		Core::App().hideMediaView();
 		if (tag.startsWith("#")) {
 			m->searchMessages(
-					tag,
-					(inPeer && !inPeer->isUser())
-					? inPeer->owner().history(inPeer).get()
-					: Dialogs::Key(),
-					from);
+				tag,
+				(inPeer && !inPeer->isUser())
+				? inPeer->owner().history(inPeer).get()
+				: Dialogs::Key(),
+				from);
 		} else {
 			m->searchMessages(
-					tag,
-					(inPeer && !inPeer->isUser())
-					? inPeer->owner().history(inPeer).get()
-					: Dialogs::Key(),
-					from ? from : inPeer);
+				tag,
+				(inPeer && !inPeer->isUser())
+				? inPeer->owner().history(inPeer).get()
+				: Dialogs::Key(),
+				from ? from : inPeer);
 		}
 	}
 }

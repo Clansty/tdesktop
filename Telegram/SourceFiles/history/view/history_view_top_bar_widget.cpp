@@ -138,8 +138,6 @@ TopBarWidget::TopBarWidget(
 , _admins(this, st::topBarAdmins)
 , _infoToggle(this, st::topBarInfo)
 , _menuToggle(this, st::topBarMenuToggle)
-, _recentActions(this, st::topBarRecentActions)
-, _admins(this, st::topBarAdmins)
 , _titlePeerText(st::windowMinWidth / 3)
 , _onlineUpdater([=] { updateOnlineDisplay(); }) {
 	setAttribute(Qt::WA_OpaquePaintEvent);

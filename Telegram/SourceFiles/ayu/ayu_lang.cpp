@@ -20,19 +20,19 @@ std::map<QString, QString> langMapping = {
 	{"zh-hant-raw", "zh-hant"},
 };
 
-CustomLangPack *CustomLangPack::instance = nullptr;
+AyuCustomLangPack *AyuCustomLangPack::instance = nullptr;
 
-CustomLangPack::CustomLangPack() = default;
+AyuCustomLangPack::AyuCustomLangPack() = default;
 
-void CustomLangPack::initInstance() {
-	if (!instance) instance = new CustomLangPack;
+void AyuCustomLangPack::initInstance() {
+	if (!instance) instance = new AyuCustomLangPack;
 }
 
-CustomLangPack *CustomLangPack::currentInstance() {
+AyuCustomLangPack *AyuCustomLangPack::currentInstance() {
 	return instance;
 }
 
-void CustomLangPack::fetchCustomLangPack(const QString &langPackId, const QString &langPackBaseId) {
+void AyuCustomLangPack::fetchCustomLangPack(const QString &langPackId, const QString &langPackBaseId) {
 	LOG(("Current Language pack ID: %1, Base ID: %2").arg(langPackId, langPackBaseId));
 
 	auto finalLangPackId = langMapping.contains(langPackId) ? langMapping[langPackId] : langPackId;
@@ -62,7 +62,7 @@ void CustomLangPack::fetchCustomLangPack(const QString &langPackId, const QStrin
 		needFallback ? (langPackBaseId.isEmpty() ? finalLangPackId : langPackBaseId) : finalLangPackId));
 }
 
-void CustomLangPack::fetchFinished() {
+void AyuCustomLangPack::fetchFinished() {
 	if (!_chkReply) return;
 
 	QString langPackBaseId = Lang::GetInstance().baseId();
@@ -89,7 +89,7 @@ void CustomLangPack::fetchFinished() {
 	}
 }
 
-void CustomLangPack::fetchError(QNetworkReply::NetworkError e) {
+void AyuCustomLangPack::fetchError(QNetworkReply::NetworkError e) {
 	LOG(("Network error: %1").arg(e));
 
 	if (e == QNetworkReply::NetworkError::ContentNotFoundError) {
@@ -109,7 +109,7 @@ void CustomLangPack::fetchError(QNetworkReply::NetworkError e) {
 	}
 }
 
-void CustomLangPack::loadDefaultLangFile() {
+void AyuCustomLangPack::loadDefaultLangFile() {
 	QFile file(":/localization/en.json");
 	if (file.open(QIODevice::ReadOnly)) {
 		QJsonDocument str = QJsonDocument::fromJson(file.readAll());
@@ -122,7 +122,7 @@ void CustomLangPack::loadDefaultLangFile() {
 	}
 }
 
-void CustomLangPack::parseLangFile(QJsonDocument str) {
+void AyuCustomLangPack::parseLangFile(QJsonDocument str) {
 	QJsonObject json = str.object();
 	for (const QString &brokenKey : json.keys()) {
 		auto key = qsl("ayu_") + brokenKey;

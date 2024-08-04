@@ -90,7 +90,7 @@ void AddUserMessagesAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
 												   ? Dialogs::Key{item->topic()}
 												   : Dialogs::Key{item->history()}
 											 : Dialogs::Key();
-						mainWidget->content()->searchMessages(QString(), key, item->from()->asUser());
+						mainWidget->content()->searchMessages(QString(), key, item->from());
 					}
 				}
 			},

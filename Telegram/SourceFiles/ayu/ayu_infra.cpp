@@ -22,8 +22,8 @@ void initLang() {
 		LOG(("Lang ID not found! Re-use old language pack..."));
 		return;
 	}
-	CustomLangPack::initInstance();
-	CustomLangPack::currentInstance()->fetchCustomLangPack(langPackId, langPackBaseId);
+	AyuCustomLangPack::initInstance();
+	AyuCustomLangPack::currentInstance()->fetchCustomLangPack(langPackId, langPackBaseId);
 }
 
 void initFonts() {

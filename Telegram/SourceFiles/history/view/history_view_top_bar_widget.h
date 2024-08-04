@@ -220,7 +220,7 @@ private:
 	Ui::Animations::Simple _searchShown;
 
 	object_ptr<Ui::RoundButton> _clear;
-	object_ptr<Ui::RoundButton> _forward, _sendNow, _delete, _forwardNoQuote, _savedMessages, _oldForward;
+	object_ptr<Ui::RoundButton> _forward, _sendNow, _delete, _forwardNoQuote, _savedMessages, _oldForward, _messageShot;
 	object_ptr<Ui::InputField> _searchField = { nullptr };
 	object_ptr<Ui::FadeWrapScaled<Ui::IconButton>> _chooseFromUser
 		= { nullptr };
@@ -245,8 +245,6 @@ private:
 	object_ptr<Ui::IconButton> _admins;
 	object_ptr<Ui::IconButton> _infoToggle;
 	object_ptr<Ui::IconButton> _menuToggle;
-	object_ptr<Ui::IconButton> _recentActions;
-	object_ptr<Ui::IconButton> _admins;
 	base::unique_qptr<Ui::PopupMenu> _menu;
 
 	object_ptr<TWidget> _membersShowArea = { nullptr };

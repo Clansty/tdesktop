@@ -430,7 +430,6 @@ HistoryItem::HistoryItem(
 			isBlocked = true;
 		}
 
-		createComponents(data);
 		if (const auto media = data.vmedia()) {
 			setMedia(*media);
 			if (checked == MediaCheckResult::HasUnsupportedTimeToLive) {
