@@ -110,6 +110,9 @@ public:
 	[[nodiscard]] rpl::producer<> deleteSelectionRequest() const {
 		return _deleteSelection.events();
 	}
+	[[nodiscard]] rpl::producer<> messageShotSelectionRequest() const {
+		return _messageShotSelection.events();
+	}
 	[[nodiscard]] rpl::producer<> clearSelectionRequest() const {
 		return _clearSelection.events();
 	}
@@ -242,6 +245,8 @@ private:
 	object_ptr<Ui::IconButton> _admins;
 	object_ptr<Ui::IconButton> _infoToggle;
 	object_ptr<Ui::IconButton> _menuToggle;
+	object_ptr<Ui::IconButton> _recentActions;
+	object_ptr<Ui::IconButton> _admins;
 	base::unique_qptr<Ui::PopupMenu> _menu;
 
 	object_ptr<TWidget> _membersShowArea = { nullptr };
@@ -268,6 +273,7 @@ private:
 	rpl::event_stream<> _savedMessagesSelection;
 	rpl::event_stream<> _sendNowSelection;
 	rpl::event_stream<> _deleteSelection;
+	rpl::event_stream<> _messageShotSelection;
 	rpl::event_stream<> _clearSelection;
 	rpl::event_stream<> _cancelChooseForReport;
 

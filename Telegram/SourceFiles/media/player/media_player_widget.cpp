@@ -92,15 +92,15 @@ Widget::Widget(
 		_playbackSlider->setValue(value);
 	});
 	_playbackSlider->setChangeProgressCallback([=](float64 value) {
-		if (_type != AudioMsgId::Type::Song) {
-			return; // Round video seek is not supported for now :(
+		if (_type != AudioMsgId::Type::Song && _type != AudioMsgId::Type::Voice) {
+			return;
 		}
 		_playbackProgress->setValue(value, false);
 		handleSeekProgress(value);
 	});
 	_playbackSlider->setChangeFinishedCallback([=](float64 value) {
-		if (_type != AudioMsgId::Type::Song) {
-			return; // Round video seek is not supported for now :(
+		if (_type != AudioMsgId::Type::Song && _type != AudioMsgId::Type::Voice) {
+			return;
 		}
 		_playbackProgress->setValue(value, false);
 		handleSeekFinished(value);
@@ -265,7 +265,7 @@ void Widget::setShadowGeometryToLeft(int x, int y, int w, int h) {
 
 void Widget::showShadowAndDropdowns() {
 	_shadow->show();
-	_playbackSlider->setVisible(_type == AudioMsgId::Type::Song);
+	_playbackSlider->setVisible(_type == AudioMsgId::Type::Song || _type == AudioMsgId::Type::Voice);
 	if (_volumeHidden) {
 		_volumeHidden = false;
 		_volume->show();
@@ -574,7 +574,7 @@ void Widget::updateControlsVisibility() {
 	_orderToggle->setVisible(_type == AudioMsgId::Type::Song);
 	_speedToggle->setVisible(hasPlaybackSpeedControl());
 	if (!_shadow->isHidden()) {
-		_playbackSlider->setVisible(_type == AudioMsgId::Type::Song);
+		_playbackSlider->setVisible(_type == AudioMsgId::Type::Song || _type == AudioMsgId::Type::Voice);
 	}
 	updateControlsGeometry();
 }

@@ -65,6 +65,9 @@ struct MessageStyle {
 	style::TextPalette semiboldPalette;
 	style::TextPalette fwdTextPalette;
 	style::TextPalette replyTextPalette;
+
+	style::icon channelBadgeIcon = { Qt::Uninitialized };
+
 	style::icon tailLeft = { Qt::Uninitialized };
 	style::icon tailRight = { Qt::Uninitialized };
 	style::icon historyRepliesIcon = { Qt::Uninitialized };

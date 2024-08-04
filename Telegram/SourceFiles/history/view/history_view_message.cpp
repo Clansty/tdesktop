@@ -45,10 +45,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_dialogs.h"
 
+// AyuGram includes
+#include "ayu/features/messageshot/message_shot.h"
+#include "styles/style_ayu_icons.h"
+
+
 namespace HistoryView {
 namespace {
 
-constexpr auto kPlayStatusLimit = 2;
+constexpr auto kPlayStatusLimit = 12;
 const auto kPsaTooltipPrefix = "cloud_lng_tooltip_psa_";
 
 [[nodiscard]] Window::SessionController *ExtractController(
@@ -474,6 +479,22 @@ void Message::setReactions(std::unique_ptr<Reactions::InlineList> list) {
 
 void Message::refreshRightBadge() {
 	const auto item = data();
+	const auto drawChannelBadge = [&]
+	{
+		if (item->isDiscussionPost()) {
+			return (delegate()->elementContext() != Context::Replies);
+		} else if (item->author()->isMegagroup()) {
+			if (const auto msgsigned = item->Get<HistoryMessageSigned>()) {
+				if (!msgsigned->viaBusinessBot) {
+					Assert(msgsigned->isAnonymousRank);
+					return false;
+				}
+			}
+		} else if (data()->history()->peer->isMegagroup() && data()->author()->isChannel() && !data()->out()) {
+			return true;
+		}
+		return false;
+	}();
 	const auto text = [&] {
 		if (item->isDiscussionPost()) {
 			return (delegate()->elementContext() == Context::Replies)
@@ -486,6 +507,8 @@ void Message::refreshRightBadge() {
 					return msgsigned->author;
 				}
 			}
+		} else if (data()->history()->peer->isMegagroup() && data()->author()->isChannel() && !data()->out()) {
+			return tr::lng_channel_badge(tr::now);
 		}
 		const auto channel = item->history()->peer->asMegagroup();
 		const auto user = item->author()->asUser();
@@ -532,6 +555,10 @@ void Message::refreshRightBadge() {
 			owner->customEmojiManager().registerInternalEmoji(icon, padding)
 		).append(many ? QString::number(boosts) : QString());
 		badge.append(' ').append(Ui::Text::Colorized(added, 1));
+	}
+	_rightBadgeIsChannel = 0;
+	if (drawChannelBadge) {
+		_rightBadgeIsChannel = 1;
 	}
 	if (badge.empty()) {
 		_rightBadge.clear();
@@ -970,7 +997,8 @@ QSize Message::performCountOptimalSize() {
 					? st::msgFont->width(FastReplyText())
 					: 0;
 				if (!_rightBadge.isEmpty()) {
-					const auto badgeWidth = _rightBadge.maxWidth();
+					const auto badgeWidth =
+						_rightBadgeIsChannel ? st::inChannelBadgeIcon.width() : _rightBadge.maxWidth();
 					namew += st::msgPadding.right()
 						+ std::max(badgeWidth, replyWidth);
 				} else if (replyWidth) {
@@ -1075,10 +1103,14 @@ int Message::marginTop() const {
 	}
 	result += displayedDateHeight();
 	if (const auto bar = Get<UnreadBar>()) {
-		result += bar->height();
+		if (!AyuFeatures::MessageShot::isTakingShot()) {
+			result += bar->height();
+		}
 	}
 	if (const auto service = Get<ServicePreMessage>()) {
-		result += service->height;
+		if (!AyuFeatures::MessageShot::isTakingShot()) {
+			result += service->height;
+		}
 	}
 	return result;
 }
@@ -1137,7 +1169,7 @@ void Message::draw(Painter &p, const PaintContext &context) const {
 	auto mediaOnBottom = (mediaDisplayed && media->isBubbleBottom()) || check || (entry/* && entry->isBubbleBottom()*/);
 	auto mediaOnTop = (mediaDisplayed && media->isBubbleTop()) || (entry && entry->isBubbleTop());
 
-	const auto displayInfo = needInfoDisplay();
+	const auto displayInfo = needInfoDisplay() && !AyuFeatures::MessageShot::ignoreRender(AyuFeatures::MessageShot::RenderPart::Date);
 	const auto reactionsInBubble = _reactions && embedReactionsInBubble();
 
 	auto mediaSelectionIntervals = (!context.selected() && mediaDisplayed)
@@ -1493,6 +1525,10 @@ void Message::paintCommentsButton(
 		Painter &p,
 		QRect &g,
 		const PaintContext &context) const {
+	if (AyuFeatures::MessageShot::isTakingShot()) {
+		return;
+	}
+
 	if (!data()->repliesAreComments() && !data()->externalReply()) {
 		return;
 	}
@@ -1622,7 +1658,8 @@ void Message::paintFromName(
 	if (!displayFromName()) {
 		return;
 	}
-	const auto badgeWidth = _rightBadge.isEmpty() ? 0 : _rightBadge.maxWidth();
+	const auto badgeWidth = _rightBadge.isEmpty() ? 0 :
+		_rightBadgeIsChannel ? context.messageStyle()->channelBadgeIcon.width() : _rightBadge.maxWidth();
 	const auto replyWidth = [&] {
 		if (isUnderCursor() && displayFastReply()) {
 			return st::msgFont->width(FastReplyText());
@@ -1723,21 +1760,29 @@ void Message::paintFromName(
 				trect.top() + st::msgFont->ascent,
 				FastReplyText());
 		} else {
-			const auto shift = QPoint(trect.width() - rightWidth, 0);
-			const auto pen = !_rightBadgeHasBoosts
-				? QPen()
-				: !context.outbg
-				? QPen(FromNameFg(context, colorIndex()))
-				: stm->msgServiceFg->p;
-			auto colored = std::array<Ui::Text::SpecialColor, 1>{
-				{ { &pen, &pen } },
-			};
-			_rightBadge.draw(p, {
-				.position = trect.topLeft() + shift,
-				.availableWidth = rightWidth,
-				.colors = colored,
-				.now = context.now,
-			});
+			if (_rightBadgeIsChannel) {
+				stm->channelBadgeIcon.paint(
+					p,
+					trect.left() + trect.width() - rightWidth,
+					trect.top() + (_rightBadge.minHeight() - stm->channelBadgeIcon.height()) / 2,
+					rightWidth);
+			} else {
+				const auto shift = QPoint(trect.width() - rightWidth, 0);
+				const auto pen = !_rightBadgeHasBoosts
+					? QPen()
+					: !context.outbg
+					? QPen(FromNameFg(context, colorIndex()))
+					: stm->msgServiceFg->p;
+				auto colored = std::array<Ui::Text::SpecialColor, 1>{
+					{ { &pen, &pen } },
+				};
+				_rightBadge.draw(p, {
+					.position = trect.topLeft() + shift,
+					.availableWidth = rightWidth,
+					.colors = colored,
+					.now = context.now,
+				});
+			}
 		}
 	}
 	trect.setY(trect.y() + st::msgNameFont->height);
@@ -3655,9 +3700,7 @@ bool Message::unwrapped() const {
 		return false;
 	}
 	const auto media = this->media();
-	return media
-		? (!hasVisibleText() && media->unwrapped())
-		: item->isEmpty();
+	return media == nullptr && item->isEmpty();
 }
 
 int Message::minWidthForMedia() const {
@@ -3728,6 +3771,10 @@ bool Message::displayRightActionComments() const {
 }
 
 std::optional<QSize> Message::rightActionSize() const {
+	if (AyuFeatures::MessageShot::isTakingShot()) {
+		return {};
+	}
+
 	if (displayRightActionComments()) {
 		const auto views = data()->Get<HistoryMessageViews>();
 		Assert(views != nullptr);
@@ -4428,7 +4475,9 @@ int Message::resizeContentGetHeight(int newWidth) {
 		}
 
 		if (item->repliesAreComments() || item->externalReply()) {
-			newHeight += st::historyCommentsButtonHeight;
+			if (!AyuFeatures::MessageShot::isTakingShot()) {
+				newHeight += st::historyCommentsButtonHeight;
+			}
 		} else if (_comments) {
 			_comments = nullptr;
 			checkHeavyPart();

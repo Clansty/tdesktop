@@ -79,6 +79,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/random.h"
 #include "spellcheck/spellcheck_highlight_syntax.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/ayu_state.h"
+#include "ayu/data/messages_storage.h"
+
+
 namespace Data {
 namespace {
 
@@ -2338,6 +2344,27 @@ void Session::updateEditedMessage(const MTPMessage &data) {
 		Reactions::CheckUnknownForUnread(this, data);
 		return;
 	}
+
+	// AyuGram saveMessagesHistory
+	const auto settings = &AyuSettings::getInstance();
+	HistoryMessageEdition edit;
+
+	if (data.type() != mtpc_message) {
+		goto proceed;
+	}
+	edit = HistoryMessageEdition(_session, data.c_message());
+	if (settings->saveMessagesHistory && !existing->isLocal() && !existing->author()->isSelf() && !edit.isEditHide) {
+		const auto msg = existing->originalText();
+
+		if (edit.textWithEntities == msg || msg.empty()) {
+			goto proceed;
+		}
+
+		AyuMessages::addEditedMessage(edit, existing);
+	}
+
+proceed:
+
 	if (existing->isLocalUpdateMedia() && data.type() == mtpc_message) {
 		updateExistingMessage(data.c_message());
 	}
@@ -2415,6 +2442,7 @@ void Session::registerMessage(not_null<HistoryItem*> item) {
 	const auto peerId = item->history()->peer->id;
 	const auto list = messagesListForInsert(peerId);
 	const auto itemId = item->id;
+
 	const auto i = list->find(itemId);
 	if (i != list->end()) {
 		LOG(("App Error: Trying to re-registerMessage()."));
@@ -2470,10 +2498,26 @@ void Session::unregisterMessageTTL(
 }
 
 void Session::checkTTLs() {
+	const auto settings = &AyuSettings::getInstance();
+
 	_ttlCheckTimer.cancel();
 	const auto now = base::unixtime::now();
-	while (!_ttlMessages.empty() && _ttlMessages.begin()->first <= now) {
-		_ttlMessages.begin()->second.front()->destroy();
+
+	if (settings->saveDeletedMessages) {
+		auto toBeRemoved = ranges::views::take_while(
+			_ttlMessages,
+			[now](const auto &pair) {
+				return pair.first <= now;
+			}) | ranges::views::transform([](const auto &pair) {
+				return pair.second;
+			}) | ranges::views::join;
+		for (auto &item : toBeRemoved) {
+			item->setAyuHint(settings->deletedMark);
+		}
+	} else {
+		while (!_ttlMessages.empty() && _ttlMessages.begin()->first <= now) {
+			_ttlMessages.begin()->second.front()->destroy();
+		}
 	}
 	scheduleNextTTLs();
 }
@@ -2492,7 +2536,14 @@ void Session::processMessagesDeleted(
 		const auto i = list ? list->find(messageId.v) : Messages::iterator();
 		if (list && i != list->end()) {
 			const auto history = i->second->history();
-			i->second->destroy();
+
+			const auto settings = &AyuSettings::getInstance();
+			if (!settings->saveDeletedMessages) {
+				i->second->destroy();
+			} else {
+				i->second->setAyuHint(settings->deletedMark);
+			}
+
 			if (!history->chatListMessageKnown()) {
 				historiesToCheck.emplace(history);
 			}
@@ -2510,7 +2561,14 @@ void Session::processNonChannelMessagesDeleted(const QVector<MTPint> &data) {
 	for (const auto &messageId : data) {
 		if (const auto item = nonChannelMessage(messageId.v)) {
 			const auto history = item->history();
-			item->destroy();
+
+			const auto settings = &AyuSettings::getInstance();
+			if (!settings->saveDeletedMessages) {
+				item->destroy();
+			} else {
+				item->setAyuHint(settings->deletedMark);
+			}
+
 			if (!history->chatListMessageKnown()) {
 				historiesToCheck.emplace(history);
 			}
@@ -4326,7 +4384,10 @@ void Session::registerItemView(not_null<ViewElement*> view) {
 }
 
 void Session::unregisterItemView(not_null<ViewElement*> view) {
-	Expects(!_heavyViewParts.contains(view));
+	// Expects(!_heavyViewParts.contains(view));
+	if (_heavyViewParts.contains(view)) {
+		view->unloadHeavyPart(); // AyuGram: fix crash when using `saveDeletedMessages`
+	}
 
 	_shownSpoilers.remove(view);
 

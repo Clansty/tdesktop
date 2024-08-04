@@ -70,7 +70,7 @@ namespace Settings {
 namespace {
 
 constexpr auto kSaveBioTimeout = 1000;
-constexpr auto kPlayStatusLimit = 2;
+constexpr auto kPlayStatusLimit = 12;
 
 class ComposedBadge final : public Ui::RpWidget {
 public:
@@ -460,10 +460,9 @@ void SetupRows(
 		[=] { controller->show(Box<EditNameBox>(self)); },
 		{ &st::menuIconProfile });
 
-	const auto showChangePhone = [=] {
-		controller->show(
-			Ui::MakeInformBox(tr::lng_change_phone_error()));
-		controller->window().activate();
+	const auto copyPhone = [=] {
+		QGuiApplication::clipboard()->setText(self->phone());
+		controller->showToast(tr::lng_text_copied(tr::now), 500);
 	};
 
 	if (GetEnhancedBool("show_phone_number")) {

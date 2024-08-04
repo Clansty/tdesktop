@@ -1,0 +1,29 @@
+/*
+ * This is the source code of AyuGram for Desktop.
+ *
+ * We do not and cannot prevent the use of our code,
+ * but be respectful and credit the original author.
+ *
+ * Copyright @Radolyn, 2024
+ */
+
+using "ui/colors.palette";
+using "ui/widgets/widgets.style";
+
+ayuGhostIcon: icon {{ "ayu/ghost", menuIconColor }};
+ayuMenuIcon: icon {{ "ayu/ayu_menu", menuIconColor }};
+ayuEditsHistoryIcon: icon {{ "ayu/edits_history", menuIconColor }};
+ayuLReadMenuIcon: icon {{ "ayu/lread", menuIconColor }};
+ayuSReadMenuIcon: icon {{ "ayu/sread", menuIconColor }};
+ayuStreamerModeMenuIcon: icon {{ "ayu/streamer", menuIconColor }};
+
+ayuMenuIconToBeginning: icon {{ "ayu/to_beginning", menuIconColor }};
+
+inChannelBadgeIcon: icon {{ "ayu/channel", msgInDateFg }};
+inChannelBadgeSelectedIcon: icon {{ "ayu/channel", msgInDateFgSelected }};
+outChannelBadgeIcon: icon {{ "ayu/channel", msgOutDateFg }};
+outChannelBadgeSelectedIcon: icon {{ "ayu/channel", msgOutDateFgSelected }};
+
+infoExteraBadge: icon {{ "ayu/exterabadge", profileVerifiedCheckBg }};
+
+winEnterWithGuestIcon: icon {{ "ayu/ghost_tray", windowFg }};

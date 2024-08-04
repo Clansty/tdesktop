@@ -98,6 +98,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QGuiApplication>
 #include <QtGui/QClipboard>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/ui/context_menu/context_menu.h"
+
+
 namespace HistoryView {
 namespace {
 
@@ -1249,6 +1254,13 @@ void AddMessageActions(
 		not_null<Ui::PopupMenu*> menu,
 		const ContextMenuRequest &request,
 		not_null<ListWidget*> list) {
+	if (request.item) {
+		AyuUi::AddHistoryAction(menu, request.item);
+		AyuUi::AddHideMessageAction(menu, request.item);
+		AyuUi::AddUserMessagesAction(menu, request.item);
+		AyuUi::AddMessageDetailsAction(menu, request.item);
+	}
+
 	AddPostLinkAction(menu, request);
 	AddForwardAction(menu, request, list);
 	AddMsgsFromUserAction(menu, request, list);
@@ -1259,6 +1271,10 @@ void AddMessageActions(
 	AddReportAction(menu, request, list);
 	AddSelectionAction(menu, request, list);
 	AddRescheduleAction(menu, request, list);
+
+	if (request.item) {
+		AyuUi::AddReadUntilAction(menu, request.item);
+	}
 }
 
 void AddCopyLinkAction(
@@ -1676,6 +1692,11 @@ void AddWhoReactedAction(
 		not_null<QWidget*> context,
 		not_null<HistoryItem*> item,
 		not_null<Window::SessionController*> controller) {
+	const auto settings = &AyuSettings::getInstance();
+	if (!AyuUi::needToShowItem(settings->showViewsPanelInContextMenu)) {
+		return;
+	}
+
 	const auto whoReadIds = std::make_shared<Api::WhoReadList>();
 	const auto weak = Ui::MakeWeak(menu.get());
 	const auto user = item->history()->peer;
@@ -2098,9 +2119,7 @@ TextWithEntities TransribedText(not_null<HistoryItem*> item) {
 }
 
 bool ItemHasTtl(HistoryItem *item) {
-	return (item && item->media())
-		? (item->media()->ttlSeconds() > 0)
-		: false;
+	return false; // AyuGram: allow downloading files with ttl
 }
 
 } // namespace HistoryView

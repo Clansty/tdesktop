@@ -1,0 +1,63 @@
+/*
+ * This is the source code of AyuGram for Desktop.
+ *
+ * We do not and cannot prevent the use of our code,
+ * but be respectful and credit the original author.
+ *
+ * Copyright @Radolyn, 2024
+ */
+
+using "ui/basic.style";
+using "ui/colors.palette";
+using "ui/widgets/widgets.style";
+using "info/info.style";
+
+/* Color Picker */
+cpPadding: 14px;
+cpSelectedPadding: 2px;
+cpSelectedRounding: 12px;
+cpImagePadding: 4px;
+cpSpacingX: 16px;
+cpSpacingY: 8px;
+cpIconSize: 64px;
+
+recentStickersLimitPadding: margins(22px, 4px, 22px, 8px);
+imageViewPadding: margins(22px, 10px, 22px, 10px);
+imageViewInnerPadding: margins(16px, 16px, 16px, 16px);
+
+botWebViewPanelHeightIncreased: 782px;
+botWebViewPanelWidthIncreased: 512px;
+
+stickerRoundingSize: 5px;
+
+messageShotPadding: 4px;
+
+topBarAdmins: IconButton {
+	width: 40px;
+	height: topBarHeight;
+
+	icon: icon {{ "ayu/top_bar_admins", menuIconFg }};
+	iconOver: icon {{ "ayu/top_bar_admins", menuIconFgOver }};
+	iconPosition: point(4px, 11px);
+
+	rippleAreaPosition: point(0px, 7px);
+	rippleAreaSize: 40px;
+	ripple: RippleAnimation(defaultRippleAnimation) {
+		color: windowBgOver;
+	}
+}
+
+topBarRecentActions: IconButton {
+	width: 40px;
+	height: topBarHeight;
+
+	icon: icon {{ "ayu/top_bar_recent_actions", menuIconFg }};
+	iconOver: icon {{ "ayu/top_bar_recent_actions", menuIconFgOver }};
+	iconPosition: point(4px, 11px);
+
+	rippleAreaPosition: point(0px, 7px);
+	rippleAreaSize: 40px;
+	ripple: RippleAnimation(defaultRippleAnimation) {
+		color: windowBgOver;
+	}
+}

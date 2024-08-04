@@ -113,6 +113,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/abstract_box.h"
 #include "data/business/data_shortcut_messages.h"
 
+// AyuGram includes
+#include "styles/style_ayu_icons.h"
+
+
 namespace Window {
 namespace {
 
@@ -323,6 +327,7 @@ private:
 	void addVideoChat();
 	void addViewStatistics();
 	void addBoostChat();
+	void addJumpToBeginning();
 
 	not_null<SessionController*> _controller;
 	Dialogs::EntryState _request;
@@ -1100,6 +1105,80 @@ void Filler::addBoostChat() {
 	}
 }
 
+void Filler::addJumpToBeginning() {
+	const auto user = _peer->asUser();
+	const auto group = _peer->isChat() ? _peer->asChat() : nullptr;
+	const auto chat = _peer->isMegagroup() ? _peer->asMegagroup() : _peer->isChannel() ? _peer->asChannel() : nullptr;
+	const auto topic = _peer->isForum() ? _thread->asTopic() : nullptr;
+	if (!user && !group && !chat && !topic) {
+		return;
+	}
+	if (topic && topic->creating()) {
+		return;
+	}
+
+	const auto controller = _controller;
+	const auto jumpToDate = [=](auto history, auto callback)
+	{
+		const auto weak = base::make_weak(controller);
+		controller->session().api().resolveJumpToDate(
+			history,
+			QDate(2013, 8, 1),
+			[=](not_null<PeerData*> peer, MsgId id)
+			{
+				if (const auto strong = weak.get()) {
+					callback(peer, id);
+				}
+			});
+	};
+
+	const auto showPeerHistory = [=](auto peer, MsgId id)
+	{
+		controller->showPeerHistory(
+			peer,
+			SectionShow::Way::Forward,
+			id);
+	};
+
+	const auto showTopic = [=](auto topic, MsgId id)
+	{
+		controller->showTopic(
+			topic,
+			id,
+			SectionShow::Way::Forward);
+	};
+
+	_addAction(
+		tr::ayu_JumpToBeginning(tr::now),
+		[=]
+		{
+			if (user) {
+				jumpToDate(controller->session().data().history(user), showPeerHistory);
+			} else if (group && !chat) {
+				jumpToDate(controller->session().data().history(group), showPeerHistory);
+			} else if (chat && !topic) {
+				if (!chat->migrateFrom() && chat->availableMinId() == 1) {
+					showPeerHistory(chat, 1);
+				} else {
+					jumpToDate(controller->session().data().history(chat), showPeerHistory);
+				}
+			} else if (topic) {
+				if (topic->isGeneral()) {
+					showTopic(topic, 1);
+				} else {
+					jumpToDate(
+						topic,
+						[=](not_null<PeerData*>, MsgId id)
+						{
+							showTopic(topic, id);
+						});
+				}
+			}
+		},
+		&st::ayuMenuIconToBeginning);
+}
+
+
 void Filler::addViewStatistics() {
 	if (const auto channel = _peer->asChannel()) {
 		const auto controller = _controller;
@@ -1481,6 +1560,7 @@ void Filler::fillContextMenuActions() {
 void Filler::fillHistoryActions() {
 	addToggleMuteSubmenu(true);
 	addInfo();
+	addJumpToBeginning();
 	addViewAsTopics();
 	addStoryArchive();
 	addSupportInfo();
@@ -1527,6 +1607,7 @@ void Filler::fillProfileActions() {
 void Filler::fillRepliesActions() {
 	if (_topic) {
 		addInfo();
+		addJumpToBeginning();
 		addManageTopic();
 	}
 	addCreatePoll();

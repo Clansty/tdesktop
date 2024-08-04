@@ -107,6 +107,10 @@ public:
 			|| (_base && _base->isNonDefaultPlural(key));
 	}
 
+	void resetValue(const QByteArray &key);
+	void applyValue(const QByteArray &key, const QByteArray &value);
+	void updatePluralRules();
+
 private:
 	void setBaseId(const QString &baseId, const QString &pluralId);
 

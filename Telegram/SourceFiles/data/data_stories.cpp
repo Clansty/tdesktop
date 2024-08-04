@@ -26,6 +26,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/layers/show.h"
 #include "ui/text/text_utilities.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Data {
 namespace {
 
@@ -1123,6 +1127,20 @@ void Stories::markAsRead(FullStoryId id, bool viewed) {
 	if (!maybeStory) {
 		return;
 	}
+
+	// AyuGram sendReadStories
+	const auto settings = &AyuSettings::getInstance();
+
+	if (!settings->sendReadStories) {
+		_markReadRequests.clear();
+		_markReadPending.clear();
+
+		_incrementViewsRequests.clear();
+		_incrementViewsPending.clear();
+
+		return;
+	}
+
 	const auto story = *maybeStory;
 	if (story->expired() && story->inProfile()) {
 		_incrementViewsPending[id.peer].emplace(id.story);
@@ -1268,6 +1286,19 @@ void Stories::toggleHidden(
 void Stories::sendMarkAsReadRequest(
 		not_null<PeerData*> peer,
 		StoryId tillId) {
+	// AyuGram sendReadStories
+	const auto settings = &AyuSettings::getInstance();
+
+	if (!settings->sendReadStories) {
+		_markReadRequests.clear();
+		_markReadPending.clear();
+
+		_incrementViewsRequests.clear();
+		_incrementViewsPending.clear();
+
+		return;
+	}
+
 	const auto peerId = peer->id;
 	_markReadRequests.emplace(peerId);
 	const auto finish = [=] {
@@ -1315,6 +1346,15 @@ void Stories::sendIncrementViewsRequests() {
 	if (_incrementViewsPending.empty()) {
 		return;
 	}
+
+	// AyuGram sendReadStories
+	const auto settings = &AyuSettings::getInstance();
+	if (!settings->sendReadStories) {
+		_incrementViewsPending.clear();
+		_incrementViewsRequests.clear();
+		return;
+	}
+
 	struct Prepared {
 		PeerId peer = 0;
 		QVector<MTPint> ids;
@@ -1927,7 +1967,12 @@ void Stories::report(
 
 bool Stories::isQuitPrevent() {
 	if (!_markReadPending.empty()) {
-		sendMarkAsReadRequests();
+		// AyuGram sendReadStories
+		const auto settings = &AyuSettings::getInstance();
+
+		if (settings->sendReadStories) {
+			sendMarkAsReadRequests();
+		}
 	}
 	if (!_incrementViewsPending.empty()) {
 		sendIncrementViewsRequests();

@@ -73,6 +73,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QClipboard>
 #include <QtGui/QWindow>
 
+// AyuGram includes
+#include "ayu/ui/settings/settings_ayu.h"
+#include "ayu/ui/utils/ayu_profile_values.h"
+
+
 namespace Settings {
 namespace {
 
@@ -142,7 +147,7 @@ Cover::Cover(
 	_name->setContextCopyText(tr::lng_profile_copy_fullname(tr::now));
 
 	_phone->setSelectable(true);
-	_phone->setContextCopyText(tr::lng_profile_copy_phone(tr::now));
+	_phone->setContextCopyText(tr::ayu_ContextCopyID(tr::now));
 
 	initViewers();
 	setupChildGeometry();
@@ -195,7 +200,7 @@ void Cover::initViewers() {
 		refreshNameGeometry(width());
 	}, lifetime());
 
-	Info::Profile::PhoneValue(
+	IDValue(
 		_user
 	) | rpl::start_with_next([=](const TextWithEntities &value) {
 		if (GetEnhancedBool("show_phone_number")) {
@@ -378,7 +383,6 @@ void SetupSections(
 		not_null<Ui::VerticalLayout*> container,
 		Fn<void(Type)> showOther) {
 	Ui::AddDivider(container);
-	Ui::AddSkip(container);
 
 	const auto addSection = [&](
 			rpl::producer<QString> label,
@@ -393,6 +397,16 @@ void SetupSections(
 			showOther(type);
 		});
 	};
+
+	Ui::AddSkip(container);
+	addSection(
+		tr::ayu_AyuPreferences(),
+		Ayu::Id(),
+        { .icon = &st::menuIconPremium });
+	Ui::AddSkip(container);
+	Ui::AddDivider(container);
+    Ui::AddSkip(container);
+
 	if (controller->session().supportMode()) {
 		SetupSupport(controller, container);
 

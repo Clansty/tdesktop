@@ -178,6 +178,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QWindow>
 #include <QtCore/QMimeData>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/utils/telegram_helpers.h"
+#include "ayu/features/messageshot/message_shot.h"
+#include "ayu/ui/boxes/message_shot_box.h"
+#include "boxes/abstract_box.h"
+
+
 namespace {
 
 constexpr auto kMessagesPerPageFirst = 30;
@@ -937,6 +945,10 @@ HistoryWidget::HistoryWidget(
 	) | rpl::start_with_next([=] {
 		confirmDeleteSelected();
 	}, _topBar->lifetime());
+	_topBar->messageShotSelectionRequest(
+	) | rpl::start_with_next([=] {
+		messageShotSelected();
+	}, _topBar->lifetime());
 	_topBar->clearSelectionRequest(
 	) | rpl::start_with_next([=] {
 		clearSelected();
@@ -961,10 +973,14 @@ HistoryWidget::HistoryWidget(
 		if (action.replaceMediaOf) {
 		} else if (action.options.scheduled) {
 			cancelReply(lastKeyboardUsed);
-			crl::on_main(this, [=, history = action.history] {
-				controller->showSection(
-					std::make_shared<HistoryView::ScheduledMemento>(history));
-			});
+			const auto settings = &AyuSettings::getInstance();
+			if (!settings->useScheduledMessages) {
+				crl::on_main(this, [=, history = action.history]
+				{
+					controller->showSection(
+						std::make_shared<HistoryView::ScheduledMemento>(history));
+				});
+			}
 		} else {
 			fastShowAtEnd(action.history);
 			if (!_justMarkingAsRead
@@ -1195,6 +1211,15 @@ void HistoryWidget::initTabbedSelector() {
 				Data::InsertCustomEmoji(_field.data(), data.document);
 			}
 		} else {
+			const auto settings = &AyuSettings::getInstance();
+			if (!settings->sendReadMessages && settings->markReadAfterAction) {
+				const auto lastMessage = history()->lastMessage();
+
+				if (lastMessage) {
+					readHistory(lastMessage);
+				}
+			}
+
 			controller()->sendingAnimation().appendSending(
 				data.messageSendingFrom);
 			const auto localId = data.messageSendingFrom.localId;
@@ -3423,7 +3448,10 @@ void HistoryWidget::messagesReceived(
 		not_null<PeerData*> peer,
 		const MTPmessages_Messages &messages,
 		int requestId) {
-	Expects(_history != nullptr);
+	// Expects(_history != nullptr);
+	if (!_history) {
+		return; // AyuGram: fix crash when using `saveDeletedMessages`
+	}
 
 	const auto toMigrated = (peer == _peer->migrateFrom());
 	if (peer != _peer && !toMigrated) {
@@ -4187,6 +4215,18 @@ Api::SendAction HistoryWidget::prepareSendAction(
 }
 
 void HistoryWidget::send(Api::SendOptions options) {
+	// AyuGram useScheduledMessages
+	const auto settings = &AyuSettings::getInstance();
+	if (settings->useScheduledMessages && !options.scheduled) {
+		auto current = base::unixtime::now();
+		options.scheduled = current + 12;
+	}
+
+	auto lastMessage = _history->lastMessage();
+	if (!settings->sendReadMessages && settings->markReadAfterAction && lastMessage) {
+		readHistory(lastMessage);
+	}
+
 	if (!_history) {
 		return;
 	} else if (_editMsgId) {
@@ -4910,6 +4950,11 @@ bool HistoryWidget::isChoosingTheme() const {
 }
 
 bool HistoryWidget::isMuteUnmute() const {
+	const auto settings = &AyuSettings::getInstance();
+	if (settings->channelBottomButton == 0) {
+		return false;
+	}
+
 	return _peer
 		&& ((_peer->isBroadcast() && !_peer->asChannel()->canPostMessages())
 			|| (_peer->isGigagroup() && !Data::CanSendAnything(_peer))
@@ -8266,6 +8311,34 @@ void HistoryWidget::confirmDeleteSelected() {
 		}));
 		controller()->show(std::move(box));
 	}
+}
+
+void HistoryWidget::messageShotSelected() {
+	if (!_list) return;
+
+	auto items = getSelectedItems();
+	if (items.empty()) {
+		return;
+	}
+
+	const auto messages = ranges::views::all(items)
+		| ranges::views::transform([this](const auto fullId)
+		{
+			return gsl::not_null(session().data().message(fullId));
+		})
+		| ranges::to_vector;
+
+	const AyuFeatures::MessageShot::ShotConfig config = {
+		controller(),
+		std::make_shared<Ui::ChatStyle>(controller()->chatStyle()),
+		messages
+	};
+	auto box = Box<MessageShotBox>(config);
+	box->boxClosing() | rpl::start_with_next([=]
+	{
+		clearSelected();
+	}, box->lifetime());
+	Ui::show(std::move(box));
 }
 
 void HistoryWidget::escape() {

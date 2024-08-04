@@ -25,7 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Shortcuts {
 namespace {
 
-constexpr auto kCountLimit = 256; // How many shortcuts can be in json file.
+constexpr auto kCountLimit = 2048; // How many shortcuts can be in json file.
 
 rpl::event_stream<not_null<Request*>> RequestsStream;
 
@@ -381,11 +381,9 @@ bool Manager::readCustomFile() {
 void Manager::fillDefaults() {
 	const auto ctrl = Platform::IsMac() ? u"meta"_q : u"ctrl"_q;
 
-	set(u"ctrl+w"_q, Command::Close);
 	set(u"ctrl+f4"_q, Command::Close);
 	set(u"ctrl+l"_q, Command::Lock);
 	set(u"ctrl+m"_q, Command::Minimize);
-	set(u"ctrl+q"_q, Command::Quit);
 	set(qsl("ctrl+t"), Command::GlobalSearch);
 
 	set(u"media play"_q, Command::MediaPlay);

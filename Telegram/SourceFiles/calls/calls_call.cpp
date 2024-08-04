@@ -703,7 +703,7 @@ bool Call::handleUpdate(const MTPPhoneCall &call) {
 				)).send();
 			}
 		}
-		if (data.is_need_rating() && _id && _accessHash) {
+		if (false && data.is_need_rating() && _id && _accessHash) {
 			const auto window = Core::App().windowFor(
 				Window::SeparateId(_user));
 			const auto session = &_user->session();

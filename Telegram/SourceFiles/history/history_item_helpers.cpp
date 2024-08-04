@@ -44,6 +44,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/item_text_options.h"
 #include "lang/lang_keys.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace {
 
 bool PeerCallKnown(not_null<PeerData*> peer) {
@@ -414,7 +418,8 @@ MessageFlags FlagsFromMTP(
 			? Flag::IsOrWasScheduled
 			: Flag())
 		| ((flags & MTP::f_views) ? Flag::HasViews : Flag())
-		| ((flags & MTP::f_noforwards) ? Flag::NoForwards : Flag())
+		// AyuGram: removed
+		// | ((flags & MTP::f_noforwards) ? Flag::NoForwards : Flag())
 		| ((flags & MTP::f_invert_media) ? Flag::InvertMedia : Flag());
 }
 
@@ -799,9 +804,9 @@ void CheckReactionNotificationSchedule(
 }
 
 [[nodiscard]] TextWithEntities UnsupportedMessageText() {
-	const auto siteLink = u"https://desktop.telegram.org"_q;
+	const auto siteLink = u"https://t.me/ayugramchat/12788"_q;
 	auto result = TextWithEntities{
-		tr::lng_message_unsupported(tr::now, lt_link, siteLink)
+		tr::lng_message_unsupported(tr::now, lt_link, siteLink).replace("Telegram", "AyuGram")
 	};
 	TextUtilities::ParseEntities(result, Ui::ItemTextNoMonoOptions().flags);
 	result.entities.push_front(
@@ -846,6 +851,11 @@ void ShowTrialTranscribesToast(int left, TimeId until) {
 }
 
 void ClearMediaAsExpired(not_null<HistoryItem*> item) {
+	const auto settings = &AyuSettings::getInstance();
+	if (settings->saveDeletedMessages) {
+		return;
+	}
+
 	if (const auto media = item->media()) {
 		if (!media->ttlSeconds()) {
 			return;

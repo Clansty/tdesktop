@@ -31,6 +31,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/unixtime.h"
 #include "styles/style_dialogs.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Dialogs {
 namespace {
 
@@ -447,10 +451,12 @@ void Row::paintUserpic(
 		updateCornerBadgeShown(peer);
 	}
 
+	const auto settings = &AyuSettings::getInstance();
+
 	const auto cornerBadgeShown = !_cornerBadgeUserpic
 		? _cornerBadgeShown
 		: !_cornerBadgeUserpic->layersManager.isDisplayedNone();
-	const auto storiesPeer = peer
+	const auto storiesPeer = settings->disableStories ? nullptr : peer
 		? ((peer->isUser() || peer->isChannel()) ? peer : nullptr)
 		: nullptr;
 	const auto storiesFolder = peer ? nullptr : _id.folder();

@@ -272,6 +272,7 @@ public:
 	void forwardSelectedToSavedMessages();
 	void forwardSelectedToQuotLy();
 	void confirmDeleteSelected();
+	void messageShotSelected();
 	void clearSelected();
 
 	[[nodiscard]] SendMenu::Details sendMenuDetails() const;

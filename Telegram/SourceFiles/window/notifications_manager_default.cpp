@@ -43,10 +43,20 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QGuiApplication>
 #include <QtGui/QScreen>
 
+// AyuGram includes
+#include "ayu/utils/telegram_helpers.h"
+#include "ayu/features/streamer_mode/streamer_mode.h"
+
+
 namespace Window {
 namespace Notifications {
 namespace Default {
 namespace {
+
+[[nodiscard]] int notifyWidth() {
+	const auto corner = Core::App().settings().notificationsCorner();
+	return Core::Settings::IsTopCenterCorner(corner) ? st::notifyWidth * 1.5 : st::notifyWidth;
+}
 
 [[nodiscard]] QPoint notificationStartPosition() {
 	const auto corner = Core::App().settings().notificationsCorner();
@@ -56,10 +66,15 @@ namespace {
 		: QGuiApplication::primaryScreen()->availableGeometry();
 	const auto isLeft = Core::Settings::IsLeftCorner(corner);
 	const auto isTop = Core::Settings::IsTopCorner(corner);
-	const auto x = (isLeft == rtl())
-		? (r.x() + r.width() - st::notifyWidth - st::notifyDeltaX)
+	auto x = (isLeft == rtl())
+		? (r.x() + r.width() - notifyWidth() - st::notifyDeltaX)
 		: (r.x() + st::notifyDeltaX);
 	const auto y = isTop ? r.y() : (r.y() + r.height());
+
+	if (Core::Settings::IsTopCenterCorner(corner)) {
+		x = (r.x() + r.width() / 2 - notifyWidth() / 2);
+	}
+
 	return QPoint(x, y);
 }
 
@@ -236,6 +251,11 @@ void Manager::showNextFromQueue() {
 	do {
 		auto queued = _queuedNotifications.front();
 		_queuedNotifications.pop_front();
+
+		if (queued.item && isMessageHidden(queued.item)) {
+			--count;
+			continue;
+		}
 
 		subscribeToSession(&queued.history->session());
 		_notifications.push_back(std::make_unique<Notification>(
@@ -650,7 +670,7 @@ Notification::Notification(
 	}
 
 	auto position = computePosition(st::notifyMinHeight);
-	updateGeometry(position.x(), position.y(), st::notifyWidth, st::notifyMinHeight);
+	updateGeometry(position.x(), position.y(), notifyWidth(), st::notifyMinHeight);
 
 	_userpicLoaded = !Ui::PeerUserpicLoading(_userpicView);
 	updateNotifyDisplay();
@@ -687,6 +707,10 @@ Notification::Notification(
 	}, lifetime());
 
 	show();
+
+	if (AyuFeatures::StreamerMode::isEnabled()) {
+		AyuFeatures::StreamerMode::hideWidgetWindow(this);
+	}
 }
 
 void Notification::updateReplyGeometry() {
@@ -1230,7 +1254,7 @@ HideAllButton::HideAllButton(
 	setCursor(style::cur_pointer);
 
 	auto position = computePosition(st::notifyHideAllHeight);
-	updateGeometry(position.x(), position.y(), st::notifyWidth, st::notifyHideAllHeight);
+	updateGeometry(position.x(), position.y(), notifyWidth(), st::notifyHideAllHeight);
 
 	style::PaletteChanged(
 	) | rpl::start_with_next([=] {
@@ -1238,6 +1262,10 @@ HideAllButton::HideAllButton(
 	}, lifetime());
 
 	show();
+
+	if (AyuFeatures::StreamerMode::isEnabled()) {
+		AyuFeatures::StreamerMode::hideWidgetWindow(this);
+	}
 }
 
 void HideAllButton::startHiding() {

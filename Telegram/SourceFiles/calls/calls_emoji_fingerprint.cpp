@@ -20,7 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Calls {
 namespace {
 
-constexpr auto kTooltipShowTimeoutMs = 1000;
+constexpr auto kTooltipShowTimeoutMs = 350;
 
 const ushort Data[] = {
 0xd83d, 0xde09, 0xd83d, 0xde0d, 0xd83d, 0xde1b, 0xd83d, 0xde2d, 0xd83d, 0xde31, 0xd83d, 0xde21,

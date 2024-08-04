@@ -41,6 +41,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/toast/toast.h"
 #include "styles/style_chat.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace HistoryView {
 namespace {
 
@@ -850,7 +854,9 @@ void WebPage::draw(Painter &p, const PaintContext &context) const {
 		: nullptr;
 	Ui::Text::ValidateQuotePaintCache(*cache, _st);
 	Ui::Text::FillQuotePaint(p, outer, *cache, _st);
-	if (backgroundEmoji) {
+
+	const auto settings = &AyuSettings::getInstance();
+	if (!settings->simpleQuotesAndReplies && backgroundEmoji) {
 		ValidateBackgroundEmoji(
 			backgroundEmojiId,
 			backgroundEmoji,
@@ -873,7 +879,7 @@ void WebPage::draw(Painter &p, const PaintContext &context) const {
 	}
 
 	if (_ripple) {
-		_ripple->paint(p, outer.x(), outer.y(), width(), &cache->bg);
+		_ripple->paint(p, outer.x(), outer.y(), width(), &cache->bg2);
 		if (_ripple->empty()) {
 			_ripple = nullptr;
 		}

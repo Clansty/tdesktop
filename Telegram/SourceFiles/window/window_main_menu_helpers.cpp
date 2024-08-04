@@ -49,7 +49,7 @@ public:
 			bool active) override {
 		update();
 		if (active && action && !action->dragText().isEmpty()) {
-			Ui::Tooltip::Show(1000, this);
+			Ui::Tooltip::Show(350, this);
 		} else {
 			Ui::Tooltip::Hide();
 		}

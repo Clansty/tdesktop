@@ -31,6 +31,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_dialogs.h"
 #include "styles/style_info.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Info {
 
 TopBar::TopBar(

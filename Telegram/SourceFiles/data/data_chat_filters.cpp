@@ -24,6 +24,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_app_config.h"
 #include "apiwrap.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Data {
 namespace {
 
@@ -389,6 +393,9 @@ void ChatFilters::load(bool force) {
 }
 
 void ChatFilters::received(const QVector<MTPDialogFilter> &list) {
+	// AyuGram hideAllChatsFolder
+	const auto settings = &AyuSettings::getInstance();
+
 	auto position = 0;
 	auto changed = false;
 	for (const auto &filter : list) {
@@ -427,6 +434,9 @@ void ChatFilters::received(const QVector<MTPDialogFilter> &list) {
 }
 
 void ChatFilters::apply(const MTPUpdate &update) {
+	// AyuGram hideAllChatsFolder
+	const auto settings = &AyuSettings::getInstance();
+
 	update.match([&](const MTPDupdateDialogFilter &data) {
 		if (const auto filter = data.vfilter()) {
 			auto parsed = ChatFilter::FromTL(*filter, _owner);
@@ -780,7 +790,10 @@ FilterId ChatFilters::defaultId() const {
 }
 
 FilterId ChatFilters::lookupId(int index) const {
-	Expects(index >= 0 && index < _list.size());
+	// Expects(index >= 0 && index < _list.size());
+	if (!(index >= 0 && index < _list.size())) {
+		return FilterId(); // AyuGram: fix crash when using `hideAllChatsFolder`
+	}
 
 	if (_owner->session().user()->isPremium() || !_list.front().id() || GetEnhancedBool("hide_all_chats")) {
 		return _list[index].id();

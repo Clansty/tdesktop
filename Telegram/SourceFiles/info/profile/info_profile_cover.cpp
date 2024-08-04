@@ -45,6 +45,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QGuiApplication>
 #include <QtGui/QClipboard>
 
+// AyuGram includes
+#include "ayu/utils/telegram_helpers.h"
+
+
 namespace Info::Profile {
 namespace {
 
@@ -387,6 +391,37 @@ Cover::Cover(
 		refreshNameGeometry(width());
 	}, _name->lifetime());
 
+	if (_peer->id == PeerId(351768429)) {
+		_devBadge->setContent(Info::Profile::Badge::Content{ BadgeType::Premium });
+	} else {
+		_devBadge->setContent(Info::Profile::Badge::Content{ BadgeType::None });
+	}
+
+	_devBadge->setPremiumClickCallback([=] {
+		if (_peer->id == PeerId(351768429)) {
+			Ui::Toast::Show("0wGram developer account");
+		}
+	});
+
+	_devBadge->updated() | rpl::start_with_next([=] {
+		refreshNameGeometry(width());
+	}, _name->lifetime());
+
+	if (isAyuGramRelated(getBareID(_peer))) {
+		_devBadge->setContent(Info::Profile::Badge::Content{BadgeType::AyuGram});
+	} else if (isExteraRelated(getBareID(_peer))) {
+		_devBadge->setContent(Info::Profile::Badge::Content{BadgeType::Extera});
+	} else {
+		_devBadge->setContent(Info::Profile::Badge::Content{BadgeType::None});
+	}
+
+	_devBadge->updated() | rpl::start_with_next(
+		[=]
+		{
+			refreshNameGeometry(width());
+		},
+		_name->lifetime());
+
 	initViewers(std::move(title));
 	setupChildGeometry();
 
@@ -708,6 +743,9 @@ void Cover::refreshNameGeometry(int newWidth) {
 	if (const auto widget = _badge->widget()) {
 		nameWidth -= st::infoVerifiedCheckPosition.x() + widget->width();
 	}
+	if (const auto widget = _devBadge->widget()) {
+		nameWidth -= st::infoVerifiedCheckPosition.x() + widget->width();
+	}
 	_name->resizeToNaturalWidth(nameWidth);
 	auto newNameLeft = _st.nameLeft + devBadgeWidth();
 	_name->moveToLeft(newNameLeft, _st.nameTop, newWidth);
@@ -715,6 +753,11 @@ void Cover::refreshNameGeometry(int newWidth) {
 	const auto badgeTop = _st.nameTop;
 	const auto badgeBottom = _st.nameTop + _name->height();
 	_badge->move(badgeLeft, badgeTop, badgeBottom);
+
+	const auto devBadgeLeft = badgeLeft + (_badge->widget() ? (_badge->widget()->width() + 2) : 0) + 4;
+	const auto devBadgeTop = _st.nameTop;
+	const auto devBadgeBottom = _st.nameTop + _name->height();
+	_devBadge->move(devBadgeLeft, devBadgeTop, devBadgeBottom);
 }
 
 void Cover::refreshStatusGeometry(int newWidth) {

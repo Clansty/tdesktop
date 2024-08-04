@@ -45,6 +45,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QtWidgets/QApplication>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ui/boxes/confirm_box.h"
+#include "boxes/abstract_box.h"
+#include "base/unixtime.h"
+
+
 namespace ChatHelpers {
 namespace {
 
@@ -463,6 +470,12 @@ void GifsListWidget::selectInlineResult(
 		return;
 	}
 
+	auto settings = &AyuSettings::getInstance();
+	if (settings->useScheduledMessages) {
+		auto current = base::unixtime::now();
+		options.scheduled = current + 12;
+	}
+
 	const auto messageSendingFrom = [&] {
 		if (options.scheduled) {
 			return Ui::MessageSendingAnimationFrom();
@@ -494,11 +507,27 @@ void GifsListWidget::selectInlineResult(
 		const auto media = document->activeMediaView();
 		const auto preview = Data::VideoPreviewState(media.get());
 		if (forceSend || (media && preview.loaded())) {
-			_fileChosen.fire({
-				.document = document,
-				.options = options,
-				.messageSendingFrom = messageSendingFrom(),
-			});
+			auto from = messageSendingFrom();
+			auto sendGIFCallback = crl::guard(
+				this,
+				[=]
+				{
+					_fileChosen.fire({
+						.document = document,
+						.options = options,
+						.messageSendingFrom = from,
+					});
+				});
+
+			if (settings->gifConfirmation) {
+				Ui::show(Ui::MakeConfirmBox({
+					.text = tr::ayu_ConfirmationGIF(),
+					.confirmed = sendGIFCallback,
+					.confirmText = tr::lng_send_button()
+				}));
+			} else {
+				sendGIFCallback();
+			}
 		} else if (!preview.usingThumbnail()) {
 			if (preview.loading()) {
 				document->cancel();

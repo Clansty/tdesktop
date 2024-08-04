@@ -86,6 +86,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/file_upload.h"
 #include "storage/storage_account.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/ayu_worker.h"
+#include "ayu/utils/telegram_helpers.h"
+
+
 namespace {
 
 // Save draft to the cloud with 1 sec extra delay.
@@ -285,6 +291,12 @@ void ApiWrap::topPromotionDone(const MTPhelp_PromoData &proxy) {
 	getTopPromotionDelayed(
 		base::unixtime::now(),
 		_topPromotionNextRequestTime);
+
+	const auto settings = &AyuSettings::getInstance();
+	if (settings->disableAds) {
+		_session->data().setTopPromoted(nullptr, QString(), QString());
+		return;
+	}
 
 	proxy.match([&](const MTPDhelp_promoDataEmpty &data) {
 		_session->data().setTopPromoted(nullptr, QString(), QString());
@@ -1339,15 +1351,24 @@ void ApiWrap::migrateFail(not_null<PeerData*> peer, const QString &error) {
 
 void ApiWrap::markContentsRead(
 		const base::flat_set<not_null<HistoryItem*>> &items) {
+	const auto settings = &AyuSettings::getInstance();
+
 	auto markedIds = QVector<MTPint>();
 	auto channelMarkedIds = base::flat_map<
 		not_null<ChannelData*>,
 		QVector<MTPint>>();
 	markedIds.reserve(items.size());
 	for (const auto &item : items) {
+		const auto passthrough = (item->isUnreadMention() || item->hasUnreadReaction()) && !item->isUnreadMedia();
+
 		if (!item->markContentsRead(true) || !item->isRegular()) {
 			continue;
 		}
+
+		if (!settings->sendReadMessages && !passthrough) {
+			continue;
+		}
+
 		if (const auto channel = item->history()->peer->asChannel()) {
 			channelMarkedIds[channel].push_back(MTP_int(item->id));
 		} else {
@@ -1370,9 +1391,17 @@ void ApiWrap::markContentsRead(
 }
 
 void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
+	const auto passthrough = (item->isUnreadMention() || item->hasUnreadReaction()) && !item->isUnreadMedia();
+
 	if (!item->markContentsRead(true) || !item->isRegular()) {
 		return;
 	}
+
+	const auto settings = &AyuSettings::getInstance();
+	if (!settings->sendReadMessages && !passthrough) {
+		return;
+	}
+
 	const auto ids = MTP_vector<MTPint>(1, MTP_int(item->id));
 	if (const auto channel = item->history()->peer->asChannel()) {
 		request(MTPchannels_ReadMessageContents(
@@ -1770,7 +1799,11 @@ void ApiWrap::joinChannel(not_null<ChannelData*> channel) {
 
 		using Flag = ChannelDataFlag;
 		chatParticipants().loadSimilarChannels(channel);
-		channel->setFlags(channel->flags() | Flag::SimilarExpanded);
+
+		const auto settings = &AyuSettings::getInstance();
+		if (!settings->collapseSimilarChannels) {
+			channel->setFlags(channel->flags() | Flag::SimilarExpanded);
+		}
 	}
 }
 
@@ -3356,6 +3389,13 @@ void ApiWrap::forwardMessages(
 				if (shared && !--shared->requestsLeft) {
 					shared->callback();
 				}
+
+				const auto settings = &AyuSettings::getInstance();
+				if (!settings->sendReadMessages && settings->markReadAfterAction && history->lastMessage())
+				{
+					readHistory(history->lastMessage());
+				}
+
 				finish();
 			}).fail([=](const MTP::Error &error) {
 				if (idsCopy) {
@@ -3640,6 +3680,13 @@ void ApiWrap::sendUploadedPhoto(
 		Api::RemoteFileInfo info,
 		Api::SendOptions options) {
 	if (const auto item = _session->data().message(localId)) {
+		// AyuGram useScheduledMessages
+		const auto settings = &AyuSettings::getInstance();
+		if (settings->useScheduledMessages && !options.scheduled) {
+			auto current = base::unixtime::now();
+			options.scheduled = current + 12;
+		}
+
 		const auto media = Api::PrepareUploadedPhoto(item, std::move(info));
 		if (const auto groupId = item->groupId()) {
 			uploadAlbumMedia(item, groupId, media);
@@ -3657,6 +3704,14 @@ void ApiWrap::sendUploadedDocument(
 		if (!item->media() || !item->media()->document()) {
 			return;
 		}
+
+		// AyuGram useScheduledMessages
+		const auto settings = &AyuSettings::getInstance();
+		if (settings->useScheduledMessages && !options.scheduled) {
+			auto current = base::unixtime::now();
+			options.scheduled = current + 12;
+		}
+
 		const auto media = Api::PrepareUploadedDocument(
 			item,
 			std::move(info));
@@ -3862,6 +3917,8 @@ void ApiWrap::sendMessage(MessageToSend &&message) {
 					draftTopicRootId,
 					UnixtimeFromMsgId(response.outerMsgId));
 			}
+
+			AyuWorker::markAsOnline(_session);
 		};
 		const auto fail = [=](
 				const MTP::Error &error,
@@ -3963,6 +4020,8 @@ void ApiWrap::sendBotStart(
 		MTP_string(token)
 	)).done([=](const MTPUpdates &result) {
 		applyUpdates(result);
+
+		AyuWorker::markAsOnline(_session);
 	}).fail([=](const MTP::Error &error) {
 		if (chat) {
 			const auto type = error.type();
@@ -4170,6 +4229,13 @@ void ApiWrap::sendMediaWithRandomId(
 		Api::SendOptions options,
 		uint64 randomId,
 		Fn<void(bool)> done) {
+	// AyuGram useScheduledMessages
+	const auto settings = &AyuSettings::getInstance();
+	if (settings->useScheduledMessages && !options.scheduled) {
+		auto current = base::unixtime::now();
+		options.scheduled = current + 12;
+	}
+
 	const auto history = item->history();
 	const auto replyTo = item->replyTo();
 
@@ -4224,6 +4290,8 @@ void ApiWrap::sendMediaWithRandomId(
 		if (updateRecentStickers) {
 			requestRecentStickers(std::nullopt, true);
 		}
+
+		AyuWorker::markAsOnline(_session);
 	}, [=](const MTP::Error &error, const MTP::Response &response) {
 		if (done) done(false);
 		sendMessageFail(error, peer, randomId, itemId);
@@ -4372,6 +4440,14 @@ void ApiWrap::sendAlbumIfReady(not_null<SendingAlbum*> album) {
 		_sendingAlbums.remove(groupId);
 		return;
 	}
+
+	// AyuGram useScheduledMessages
+	const auto settings = &AyuSettings::getInstance();
+	if (settings->useScheduledMessages && !album->options.scheduled) {
+		auto current = base::unixtime::now();
+		album->options.scheduled = current + 12;
+	}
+
 	const auto history = sample->history();
 	const auto replyTo = sample->replyTo();
 	const auto sendAs = album->options.sendAs;
@@ -4405,6 +4481,8 @@ void ApiWrap::sendAlbumIfReady(not_null<SendingAlbum*> album) {
 			MTP_long(album->options.effectId)
 		), [=](const MTPUpdates &result, const MTP::Response &response) {
 		_sendingAlbums.remove(groupId);
+
+		AyuWorker::markAsOnline(_session);
 	}, [=](const MTP::Error &error, const MTP::Response &response) {
 		if (const auto album = _sendingAlbums.take(groupId)) {
 			for (const auto &item : (*album)->items) {

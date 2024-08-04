@@ -70,6 +70,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "spellcheck/spellcheck_highlight_syntax.h"
 #include "styles/style_dialogs.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/ayu_state.h"
+#include "ayu/features/messageshot/message_shot.h"
+#include "ayu/utils/telegram_helpers.h"
+
+
 namespace {
 
 constexpr auto kNotificationTextLimit = 255;
@@ -260,7 +267,7 @@ std::unique_ptr<Data::Media> HistoryItem::CreateMedia(
 		});
 	}, [&](const MTPDmessageMediaPhoto &media) -> Result {
 		const auto photo = media.vphoto();
-		if (media.vttl_seconds()) {
+		if (media.vttl_seconds() && false) {  // AyuGram: show expiring messages
 			LOG(("App Error: "
 				"Unexpected MTPMessageMediaPhoto "
 				"with ttl_seconds in CreateMedia."));
@@ -281,7 +288,7 @@ std::unique_ptr<Data::Media> HistoryItem::CreateMedia(
 		});
 	}, [&](const MTPDmessageMediaDocument &media) -> Result {
 		const auto document = media.vdocument();
-		if (media.vttl_seconds() && media.is_video()) {
+		if (false) {  // AyuGram: show expiring messages
 			LOG(("App Error: "
 				"Unexpected MTPMessageMediaDocument "
 				"with ttl_seconds in CreateMedia."));
@@ -405,8 +412,7 @@ HistoryItem::HistoryItem(
 		setServiceText({
 			tr::lng_message_empty(tr::now, Ui::Text::WithEntities)
 		});
-	} else if ((checked == MediaCheckResult::HasUnsupportedTimeToLive)
-			|| (checked == MediaCheckResult::HasExpiredMediaTimeToLive)) {
+	} else if (checked == MediaCheckResult::HasExpiredMediaTimeToLive) {
 		createServiceFromMtp(data);
 		applyTTL(data);
 	} else if (checked == MediaCheckResult::HasStoryMention) {
@@ -424,8 +430,43 @@ HistoryItem::HistoryItem(
 			isBlocked = true;
 		}
 
+		createComponents(data);
 		if (const auto media = data.vmedia()) {
 			setMedia(*media);
+			if (checked == MediaCheckResult::HasUnsupportedTimeToLive) {
+				media->match(
+					[&](const MTPDmessageMediaPhoto &media)
+					{
+						auto time = media.vttl_seconds()->v;
+						setAyuHint(formatTTL(time));
+					},
+					[&](const MTPDmessageMediaDocument &media)
+					{
+						auto time = media.vttl_seconds()->v;
+						setAyuHint(formatTTL(time));
+					},
+					[&](const MTPDmessageMediaWebPage &media)
+					{
+					},
+					[&](const MTPDmessageMediaGame &media)
+					{
+					},
+					[&](const MTPDmessageMediaInvoice &media)
+					{
+					},
+					[&](const MTPDmessageMediaPoll &media)
+					{
+					},
+					[&](const MTPDmessageMediaDice &media)
+					{
+					},
+					[&](const MTPDmessageMediaStory &media)
+					{
+					},
+					[&](const auto &)
+					{
+					});
+			}
 			if (_media && _media->webpage()) {
 				if (isBlocked) {
 					_media->webpage()->applyChanges(WebPageType::Article, "", "", "", "", TextWithEntities(), FullStoryId(), nullptr, nullptr,  WebPageCollage(), nullptr, 0, 0, "", false, 0);
@@ -1194,12 +1235,26 @@ QString GenerateServiceTime(TimeId date) {
 }
 
 void HistoryItem::setServiceText(PreparedServiceText &&prepared) {
+	auto text = std::move(prepared.text);
+
+	const auto settings = &AyuSettings::getInstance();
+	if (date() > 0) {
+		const auto timeString = QString(" (%1)").arg(QLocale().toString(
+			base::unixtime::parse(_date),
+			settings->showMessageSeconds
+				? QLocale::system().timeFormat(QLocale::LongFormat).remove(" t")
+				: QLocale::system().timeFormat(QLocale::ShortFormat)
+		));
+		if (!text.text.isEmpty() && !text.text.contains(timeString)) {
+			text = text.append(timeString);
+		}
+	}
+
 	AddComponents(HistoryServiceData::Bit());
 	_flags &= ~MessageFlag::HasTextLinks;
 	const auto data = Get<HistoryServiceData>();
 	const auto had = !_text.empty();
-	prepared.text.text += GenerateServiceTime(date());
-	_text = std::move(prepared.text);
+	_text = std::move(text);
 	data->textLinks = std::move(prepared.links);
 	if (had) {
 		_history->owner().requestItemTextRefresh(this);
@@ -2598,7 +2653,7 @@ void HistoryItem::updateReactionsUnknown() {
 
 const std::vector<Data::MessageReaction> &HistoryItem::reactions() const {
 	static const auto kEmpty = std::vector<Data::MessageReaction>();
-	return _reactions ? _reactions->list() : kEmpty;
+	return _reactions && !AyuFeatures::MessageShot::ignoreRender(AyuFeatures::MessageShot::RenderPart::Reactions) ? _reactions->list() : kEmpty;
 }
 
 bool HistoryItem::reactionsAreTags() const {
@@ -2835,6 +2890,51 @@ void HistoryItem::setPostAuthor(const QString &postAuthor) {
 	msgsigned->isAnonymousRank = !isDiscussionPost()
 		&& this->author()->isMegagroup();
 	history()->owner().requestItemResize(this);
+}
+
+void HistoryItem::setAyuHint(const QString &hint) {
+	try {
+		if (!(_flags & MessageFlag::HasPostAuthor)) {
+			_flags |= MessageFlag::HasPostAuthor;
+		}
+
+		auto msgsigned = Get<HistoryMessageSigned>();
+		if (hint.isEmpty()) {
+			if (!msgsigned) {
+				return;
+			}
+			RemoveComponents(HistoryMessageSigned::Bit());
+			history()->owner().requestItemResize(this);
+			return;
+		}
+
+		if (!isService()) {
+			if (!msgsigned) {
+				AddComponents(HistoryMessageSigned::Bit());
+				msgsigned = Get<HistoryMessageSigned>();
+			} else if (msgsigned->author == hint) {
+				return;
+			}
+			msgsigned->author = hint;
+			msgsigned->isAnonymousRank = !isDiscussionPost()
+				&& this->author()->isMegagroup();
+		} else {
+			const auto data = Get<HistoryServiceData>();
+			const auto postfix = QString(" (%1)").arg(hint);
+			if (!_text.text.endsWith(postfix)) { // fix stacking for TTL messages
+				auto prepared = PreparedServiceText{
+					.text = _text.append(postfix),
+					.links = data->textLinks
+				};
+				setServiceText(std::move(prepared));
+			}
+		}
+
+		history()->owner().requestItemViewRefresh(this);
+		history()->owner().requestItemResize(this);
+	} catch (...) {
+		DEBUG_LOG(("AyuGram: crash in setting hint"));
+	}
 }
 
 void HistoryItem::setReplies(HistoryMessageRepliesData &&data) {
@@ -3267,6 +3367,10 @@ EffectId HistoryItem::effectId() const {
 }
 
 bool HistoryItem::isEmpty() const {
+	if (isMessageHidden(const_cast<HistoryItem*>(this))) {
+		return true;
+	}
+
 	return _text.empty()
 		&& !_media
 		&& (!Has<HistoryMessageFactcheck>()

@@ -92,6 +92,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QTextEdit>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Dialogs {
 namespace {
 
@@ -595,7 +599,8 @@ void Widget::chosenRow(const ChosenRow &row) {
 		&& row.userpicClick
 		&& (row.message.fullId.msg == ShowAtUnreadMsgId)
 		&& history->peer->hasActiveStories()
-		&& !history->peer->isSelf()) {
+		&& !history->peer->isSelf()
+		&& !AyuSettings::getInstance().disableStories) {
 		controller()->openPeerStories(history->peer->id);
 		return;
 	} else if (history
@@ -924,11 +929,17 @@ void Widget::setupMainMenuToggle() {
 
 	Window::OtherAccountsUnreadState(
 	) | rpl::start_with_next([=](const Window::OthersUnreadState &state) {
-		const auto icon = !state.count
+		auto icon = !state.count
 			? nullptr
 			: !state.allMuted
 			? &st::dialogsMenuToggleUnread
 			: &st::dialogsMenuToggleUnreadMuted;
+
+		const auto settings = &AyuSettings::getInstance();
+		if (settings->hideNotificationCounters) {
+			icon = nullptr;
+		}
+
 		_mainMenu.toggle->setIconOverride(icon, icon);
 	}, _mainMenu.toggle->lifetime());
 }
@@ -1625,7 +1636,7 @@ void Widget::checkUpdateStatus() {
 		}
 		_updateTelegram.create(
 			this,
-			tr::lng_update_telegram(tr::now),
+			tr::ayu_UpdateAyuGram(tr::now),
 			st::dialogsUpdateButton,
 			st::dialogsInstallUpdate,
 			st::dialogsInstallUpdateOver);
@@ -1802,6 +1813,13 @@ void Widget::updateStoriesVisibility() {
 	if (!_stories) {
 		return;
 	}
+
+	const auto settings = &AyuSettings::getInstance();
+	if (settings->disableStories) {
+		_stories->setVisible(false);
+		return;
+	}
+
 	const auto hidden = (_showAnimation != nullptr)
 		|| _openedForum
 		|| !_widthAnimationCache.isNull()

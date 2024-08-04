@@ -101,9 +101,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QMimeData>
 #include <api/api_sending.h>
 
+// AyuGram includes
+#include "ayu/ui/context_menu/context_menu.h"
+#include "ayu/utils/telegram_helpers.h"
+
+
 namespace {
 
-constexpr auto kScrollDateHideTimeout = 1000;
+constexpr auto kScrollDateHideTimeout = 800;
 constexpr auto kUnloadHeavyPartsPages = 2;
 constexpr auto kClearUserpicsAfter = 50;
 
@@ -2303,6 +2308,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 				}, &st::menuIconInfo);
 			}
 		}
+
+		AyuUi::AddHistoryAction(_menu, item);
+		AyuUi::AddHideMessageAction(_menu, item);
+		AyuUi::AddMessageDetailsAction(_menu, item);
 	};
 	const auto addPhotoActions = [&](not_null<PhotoData*> photo, HistoryItem *item) {
 		const auto media = photo->activeMediaView();
@@ -2505,6 +2514,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 					&st::menuIconSelect);
 			}();
 		}
+
+		AyuUi::AddReadUntilAction(_menu, item);
 	};
 
 	const auto addReplyAction = [&](HistoryItem *item) {
@@ -4252,7 +4263,7 @@ void HistoryInner::mouseActionUpdate() {
 		|| dragState.cursor == CursorState::Date
 		|| dragState.cursor == CursorState::Forwarded
 		|| dragState.customTooltip) {
-		Ui::Tooltip::Show(1000, this);
+		Ui::Tooltip::Show(350, this);
 	}
 
 	Qt::CursorShape cur = style::cur_default;
@@ -4589,6 +4600,10 @@ bool HistoryInner::goodForSelection(
 		not_null<SelectedItems*> toItems,
 		not_null<HistoryItem*> item,
 		int &totalCount) const {
+	if (isMessageHidden(item)) {
+		return false;
+	}
+
 	if (!item->isRegular() || item->isService()) {
 		return false;
 	} else if (toItems->find(item) == toItems->end()) {

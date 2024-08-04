@@ -32,6 +32,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_window.h"
 
+// AyuGram includes
+#include "ayu/features/messageshot/message_shot.h"
+
+
 namespace HistoryView {
 namespace {
 
@@ -111,6 +115,10 @@ SublistWidget::SublistWidget(
 	_topBar->deleteSelectionRequest(
 	) | rpl::start_with_next([=] {
 		confirmDeleteSelected();
+	}, _topBar->lifetime());
+	_topBar->messageShotSelectionRequest(
+	) | rpl::start_with_next([=] {
+		AyuFeatures::MessageShot::Wrapper(_inner, [=] { clearSelected(); });
 	}, _topBar->lifetime());
 	_topBar->forwardSelectionRequest(
 	) | rpl::start_with_next([=] {

@@ -41,6 +41,8 @@ enum class BadgeType {
 	Premium = 0x02,
 	Scam = 0x04,
 	Fake = 0x08,
+	AyuGram = 0x10,
+	Extera = 0x20,
 };
 inline constexpr bool is_flag_type(BadgeType) { return true; }
 

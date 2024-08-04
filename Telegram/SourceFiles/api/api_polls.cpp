@@ -21,6 +21,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_item_helpers.h" // ShouldSendSilent
 #include "main/main_session.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/utils/telegram_helpers.h"
+
+
 namespace Api {
 namespace {
 
@@ -157,6 +162,12 @@ void Polls::sendVotes(
 		_pollVotesRequestIds.erase(itemId);
 		hideSending();
 		_session->updates().applyUpdates(result);
+
+		const auto settings = &AyuSettings::getInstance();
+		if (!settings->sendReadMessages && settings->markReadAfterAction && item)
+		{
+			readHistory(item);
+		}
 	}).fail([=] {
 		_pollVotesRequestIds.erase(itemId);
 		hideSending();

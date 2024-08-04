@@ -66,6 +66,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QClipboard>
 #include <QtSvg/QSvgRenderer>
 
+// AyuGram includes
+#include "ayu/utils/telegram_helpers.h"
+#include "styles/style_ayu_styles.h"
+#include "window/window_session_controller.h"
+#include "data/data_user.h"
+
+
 namespace {
 
 constexpr auto kStickersPerRow = 5;
@@ -734,6 +741,42 @@ void StickerSetBox::updateButtons() {
 					&st::menuIconManage);
 			});
 		}();
+		const auto addPackOwner = [=](const std::shared_ptr<base::unique_qptr<Ui::PopupMenu>> &menu)
+		{
+			if (type == Data::StickersType::Stickers || type == Data::StickersType::Emoji) {
+				const auto pointer = Ui::MakeWeak(this);
+				(*menu)->addAction(
+					tr::ayu_MessageDetailsPackOwnerPC(tr::now),
+					[=]
+					{
+						if (!pointer) {
+							return;
+						}
+
+						searchById(
+							_inner->setId() >> 32,
+							_session,
+							[=](const QString &username, UserData *user)
+							{
+								if (!pointer) {
+									return;
+								}
+
+								if (!user) {
+									showToast(tr::ayu_UserNotFoundMessage(tr::now));
+									return;
+								}
+
+								if (const auto window = _session->tryResolveWindow()) {
+									if (const auto mainWidget = window->widget()->sessionController()) {
+										mainWidget->showPeer(user);
+									}
+								}
+							});
+					},
+					&st::menuIconProfile);
+			}
+		};
 		if (_inner->notInstalled()) {
 			if (!_session->premium()
 				&& _session->premiumPossible()
@@ -783,6 +826,7 @@ void StickerSetBox::updateButtons() {
 							: tr::lng_stickers_share_pack)(tr::now),
 						[=] { share(); closeBox(); },
 						&st::menuIconShare);
+					addPackOwner(menu);
 					(*menu)->popup(QCursor::pos());
 					return true;
 				});
@@ -835,6 +879,7 @@ void StickerSetBox::updateButtons() {
 							archive,
 							&st::menuIconArchive);
 					}
+					addPackOwner(menu);
 					(*menu)->popup(QCursor::pos());
 					return true;
 				});
@@ -1983,6 +2028,18 @@ void StickerSetBox::Inner::paintSticker(
 		(_singleSize.width() - size.width()) / 2,
 		(_singleSize.height() - size.height()) / 2);
 	auto lottieFrame = QImage();
+
+	if (sticker->setType == Data::StickersType::Stickers) {
+		QPainterPath path;
+		path.addRoundedRect(QRectF(ppos, size), st::stickerRoundingSize, st::stickerRoundingSize);
+
+		p.save();
+
+		p.setRenderHint(QPainter::Antialiasing, true);
+		p.setClipPath(path);
+		p.setRenderHint(QPainter::Antialiasing, false);
+	}
+
 	if (element.emoji) {
 		element.emoji->paint(p, {
 			.textColor = st::windowFg->c,
@@ -2016,6 +2073,11 @@ void StickerSetBox::Inner::paintSticker(
 			QRect(ppos, size),
 			_pathGradient.get());
 	}
+
+	if (sticker->setType == Data::StickersType::Stickers) {
+		p.restore();
+	}
+
 	if (premium) {
 		_premiumMark.paint(
 			p,

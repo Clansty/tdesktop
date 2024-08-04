@@ -68,6 +68,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "boxes/abstract_box.h"
 
+// AyuGram includes
+#include "ayu/ayu_url_handlers.h"
+
+
 namespace Core {
 namespace {
 
@@ -1337,6 +1341,14 @@ const std::vector<LocalUrlHandler> &LocalUrlHandlers() {
 		{
 			u"^message/?\\?slug=([a-zA-Z0-9\\.\\_\\-]+)(&|$)"_q,
 			ResolveChatLink
+		},
+		{
+			u"^user\\?(.+)(#|$)"_q,
+			AyuUrlHandlers::ResolveUser
+		},
+		{
+			u"^ayu/?(.+)?(#|$)"_q,
+			AyuUrlHandlers::HandleAyu
 		},
 		{
 			u"^([^\\?]+)(\\?|#|$)"_q,

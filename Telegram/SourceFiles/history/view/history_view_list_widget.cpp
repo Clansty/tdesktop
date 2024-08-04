@@ -75,6 +75,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtWidgets/QApplication>
 #include <QtCore/QMimeData>
 
+// AyuGram includes
+#include "ayu/utils/telegram_helpers.h"
+
+
 namespace HistoryView {
 namespace {
 
@@ -1278,6 +1282,10 @@ bool ListWidget::isGoodForSelection(
 bool ListWidget::addToSelection(
 		SelectedMap &applyTo,
 		not_null<HistoryItem*> item) const {
+	if (isMessageHidden(item)) {
+		return false;
+	}
+
 	const auto itemId = item->fullId();
 	auto [iterator, ok] = applyTo.try_emplace(
 		itemId,
@@ -3639,7 +3647,7 @@ void ListWidget::mouseActionUpdate() {
 	if (dragState.link
 		|| dragState.cursor == CursorState::Date
 		|| dragState.cursor == CursorState::Forwarded) {
-		Ui::Tooltip::Show(1000, this);
+		Ui::Tooltip::Show(350, this);
 	}
 
 	if (_mouseAction == MouseAction::None) {

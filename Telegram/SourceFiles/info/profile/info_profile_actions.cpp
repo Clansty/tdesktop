@@ -77,6 +77,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QGuiApplication>
 #include <QtGui/QClipboard>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/ui/utils/ayu_profile_values.h"
+#include "ayu/utils/telegram_helpers.h"
+#include "ui/text/text_entity.h"
+
+
 namespace Info {
 namespace Profile {
 namespace {
@@ -88,6 +95,7 @@ base::options::toggle ShowPeerIdBelowAbout({
 	.name = "Show Peer IDs in Profile",
 	.description = "Show peer IDs from API below their Bio / Description."
 		" Add contact IDs to exported data.",
+	.scope = static_cast<base::options::details::ScopeFlag>(0),
 });
 
 [[nodiscard]] rpl::producer<TextWithEntities> UsernamesSubtext(
@@ -939,6 +947,8 @@ bool SetClickContext(
 }
 
 object_ptr<Ui::RpWidget> DetailsFiller::setupInfo() {
+	auto settings = &AyuSettings::getInstance();
+
 	auto result = object_ptr<Ui::VerticalLayout>(_wrap);
 	auto tracker = Ui::MultiSlideTracker();
 
@@ -1160,6 +1170,34 @@ object_ptr<Ui::RpWidget> DetailsFiller::setupInfo() {
 			).text->setLinksTrusted();
 		}
 
+		if (settings->showPeerId != 0) {
+			const auto dataCenter = getPeerDC(_peer);
+			const auto idLabel = dataCenter.isEmpty() ? QString("ID") : dataCenter;
+
+			auto idDrawableText = IDValue(
+				user
+			) | rpl::map([](TextWithEntities &&text)
+			{
+				return Ui::Text::Code(text.text);
+			});
+			auto idInfo = addInfoOneLine(
+				rpl::single(idLabel),
+				std::move(idDrawableText),
+				tr::ayu_ContextCopyID(tr::now)
+			);
+
+			idInfo.text->setClickHandlerFilter([=](auto &&...)
+			{
+				const auto idText = IDString(user);
+				if (!idText.isEmpty()) {
+					QGuiApplication::clipboard()->setText(idText);
+					const auto msg = tr::ayu_IDCopiedToast(tr::now);
+					controller->showToast(msg);
+				}
+				return false;
+			});
+		}
+
 		AddMainButton(
 			result,
 			tr::lng_info_add_as_contact(),
@@ -1208,6 +1246,37 @@ object_ptr<Ui::RpWidget> DetailsFiller::setupInfo() {
 		linkLine.text->overrideLinkClickHandler(linkCallback);
 		linkLine.subtext->overrideLinkClickHandler(linkCallback);
 
+		const auto hook = [=](Ui::FlatLabel::ContextMenuRequest request)
+		{
+			if (!request.link) {
+				return;
+			}
+			const auto text = request.link->copyToClipboardContextItemText();
+			if (text.isEmpty()) {
+				return;
+			}
+			const auto link = request.link->copyToClipboardText();
+			request.menu->addAction(
+				text,
+				[=] { QGuiApplication::clipboard()->setText(link); });
+			const auto last = link.lastIndexOf('/');
+			if (last < 0) {
+				return;
+			}
+			const auto mention = '@' + link.mid(last + 1);
+			if (mention.size() < 2) {
+				return;
+			}
+			request.menu->addAction(
+				tr::lng_context_copy_mention(tr::now),
+				[=] { QGuiApplication::clipboard()->setText(mention); });
+		};
+
+		if (!_topic) {
+			linkLine.text->setContextMenuHook(hook);
+			linkLine.subtext->setContextMenuHook(hook);
+		}
+
 		if (const auto channel = _topic ? nullptr : _peer->asChannel()) {
 			auto locationText = LocationValue(
 				channel
@@ -1230,6 +1299,59 @@ object_ptr<Ui::RpWidget> DetailsFiller::setupInfo() {
 			: AboutWithIdValue(_peer));
 		if (!_topic) {
 			addTranslateToMenu(about.text, AboutWithIdValue(_peer));
+		}
+
+		if (settings->showPeerId != 0 && !_topic) {
+			const auto dataCenter = getPeerDC(_peer);
+			const auto idLabel = dataCenter.isEmpty() ? QString("ID") : dataCenter;
+
+			auto idDrawableText = IDValue(
+				_peer
+			) | rpl::map([](TextWithEntities &&text)
+			{
+				return Ui::Text::Code(text.text);
+			});
+			auto idInfo = addInfoOneLine(
+				idLabel,
+				std::move(idDrawableText),
+				tr::ayu_ContextCopyID(tr::now)
+			);
+
+			idInfo.text->setClickHandlerFilter([=, peer = _peer](auto &&...)
+			{
+				const auto idText = IDString(peer);
+				if (!idText.isEmpty()) {
+					QGuiApplication::clipboard()->setText(idText);
+					const auto msg = tr::ayu_IDCopiedToast(tr::now);
+					controller->showToast(msg);
+				}
+				return false;
+			});
+		}
+
+		if (settings->showPeerId != 0 && _topic) {
+			auto idDrawableText = IDValue(
+				_peer->forumTopicFor(topicRootId)->topicRootId()
+			) | rpl::map([](TextWithEntities &&text)
+			{
+				return Ui::Text::Code(text.text);
+			});
+			auto idInfo = addInfoOneLine(
+				rpl::single(QString("ID")),
+				std::move(idDrawableText),
+				tr::ayu_ContextCopyID(tr::now)
+			);
+
+			idInfo.text->setClickHandlerFilter([=, peer = _peer](auto &&...)
+			{
+				const auto idText = IDString(peer);
+				if (!idText.isEmpty()) {
+					QGuiApplication::clipboard()->setText(idText);
+					const auto msg = tr::ayu_IDCopiedToast(tr::now);
+					controller->showToast(msg);
+				}
+				return false;
+			});
 		}
 	}
 	if (!_peer->isSelf()) {

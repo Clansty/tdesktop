@@ -35,6 +35,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "chat_helpers/stickers_lottie.h"
 #include "styles/style_chat.h"
 
+// AyuGram includes
+#include "history/view/media/history_view_media.h"
+#include "ui/chat/message_bubble.h"
+
+
 namespace HistoryView {
 namespace {
 
@@ -291,11 +296,19 @@ void Sticker::paintAnimationFrame(
 	const auto &image = _lastDiceFrame.isNull()
 		? frame.image
 		: _lastDiceFrame;
-	const auto prepared = (!_lastDiceFrame.isNull() && context.selected())
+
+	const auto rounding = Ui::BubbleRounding{
+		.topLeft = Ui::BubbleCornerRounding::Small,
+		.topRight = Ui::BubbleCornerRounding::Small,
+		.bottomLeft = Ui::BubbleCornerRounding::Small,
+		.bottomRight = Ui::BubbleCornerRounding::Small,
+	};
+	auto prepared = (!_lastDiceFrame.isNull() && context.selected())
 		? Images::Colored(
 			base::duplicate(image),
 			context.st->msgStickerOverlay()->c)
 		: image;
+	prepared = Images::Round(std::move(prepared), MediaRoundingMask(rounding));
 	const auto size = prepared.size() / style::DevicePixelRatio();
 	p.drawImage(
 		QRect(
@@ -395,6 +408,7 @@ void Sticker::paintPath(
 }
 
 QPixmap Sticker::paintedPixmap(const PaintContext &context) const {
+	const auto roundOptions = Images::RoundOptions(ImageRoundRadius::Large);
 	auto helper = std::optional<style::owned_color>();
 	const auto colored = (customEmojiPart() && _data->emojiUsesTextColor())
 		? &helper.emplace(ComputeEmojiTextColor(context)).color()
@@ -403,7 +417,7 @@ QPixmap Sticker::paintedPixmap(const PaintContext &context) const {
 		: nullptr;
 	const auto good = _dataMedia->goodThumbnail();
 	if (const auto image = _dataMedia->getStickerLarge()) {
-		return image->pix(_size, { .colored = colored });
+		return image->pix(_size, { .colored = colored, .options = roundOptions });
 	//
 	// Inline thumbnails can't have alpha channel.
 	//
@@ -412,11 +426,11 @@ QPixmap Sticker::paintedPixmap(const PaintContext &context) const {
 	//		_size,
 	//		{ .colored = colored, .options = Images::Option::Blur });
 	} else if (good) {
-		return good->pix(_size, { .colored = colored });
+		return good->pix(_size, { .colored = colored, .options = roundOptions });
 	} else if (const auto thumbnail = _dataMedia->thumbnail()) {
 		return thumbnail->pix(
 			_size,
-			{ .colored = colored, .options = Images::Option::Blur });
+			{ .colored = colored, .options = Images::Option::Blur | roundOptions });
 	}
 	return QPixmap();
 }

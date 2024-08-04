@@ -763,7 +763,7 @@ void MainWidget::searchMessages(const QString &query, Dialogs::Key inChat, PeerD
 			const auto account = not_null(&session().account());
 			if (const auto window = Core::App().windowFor(account)) {
 				if (const auto controller = window->sessionController()) {
-					controller->content()->searchMessages(query, inChat, nullptr);
+					controller->content()->searchMessages(query, inChat, from);
 					controller->widget()->activate();
 				}
 			}

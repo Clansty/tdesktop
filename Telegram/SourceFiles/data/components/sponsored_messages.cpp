@@ -20,6 +20,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "ui/text/text_utilities.h" // Ui::Text::RichLangValue.
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Data {
 namespace {
 
@@ -193,7 +197,9 @@ void SponsoredMessages::inject(
 }
 
 bool SponsoredMessages::canHaveFor(not_null<History*> history) const {
-	return history->peer->isChannel();
+	// AyuGram disableAds
+	auto settings = &AyuSettings::getInstance();
+	return !settings->disableAds && history->peer->isChannel();
 }
 
 void SponsoredMessages::request(not_null<History*> history, Fn<void()> done) {

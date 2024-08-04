@@ -68,6 +68,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/qt/qt_common_adapters.h"
 #include "styles/style_dialogs.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/ayu_state.h"
+
+
 namespace {
 
 constexpr auto kNewBlockEachMessage = 50;
@@ -495,7 +500,10 @@ not_null<HistoryItem*> History::insertItem(
 }
 
 void History::destroyMessage(not_null<HistoryItem*> item) {
-	Expects(item->isHistoryEntry() || !item->mainView());
+	// Expects(item->isHistoryEntry() || !item->mainView());
+	if (!(item->isHistoryEntry() || !item->mainView())) {
+		return; // AyuGram: fix crash when using `saveDeletedMessages`
+	}
 
 	const auto peerId = peer->id;
 	if (item->isHistoryEntry()) {

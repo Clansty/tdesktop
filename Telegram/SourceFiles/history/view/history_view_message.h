@@ -320,6 +320,7 @@ private:
 	uint32 _invertMedia : 1 = 0;
 	uint32 _hideReply : 1 = 0;
 	uint32 _rightBadgeHasBoosts : 1 = 0;
+	uint32 _rightBadgeIsChannel : 1 = 0;
 
 	BottomInfo _bottomInfo;
 

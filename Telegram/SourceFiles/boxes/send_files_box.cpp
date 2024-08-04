@@ -63,6 +63,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QtCore/QMimeData>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "base/unixtime.h"
+#include "styles/style_menu_icons.h"
+#include "ayu/utils/telegram_helpers.h"
+#include <QBuffer>
+
+
 namespace {
 
 constexpr auto kMaxMessageLength = 4096;
@@ -874,6 +882,36 @@ void SendFilesBox::addMenuButton() {
 			_sendMenuCallback,
 			&_st.tabbed.icons,
 			position);
+
+		using ImageInfo = Ui::PreparedFileInformation::Image;
+		if (_list.files.size() == 1 && std::get_if<ImageInfo>(&_list.files[0].information->media)) {
+			_menu->addAction(
+				tr::ayu_SendAsSticker(tr::now),
+				[=]() mutable
+				{
+					const auto file = std::move(_list.files[0]);
+					_list.files.clear();
+
+					const auto sourceImage = std::get_if<ImageInfo>(&file.information->media);
+
+					QByteArray targetArray;
+					QBuffer buffer(&targetArray);
+					buffer.open(QIODevice::WriteOnly);
+					sourceImage->data.save(&buffer, "WEBP");
+
+					QImage targetImage;
+					targetImage.loadFromData(targetArray, "WEBP");
+
+					addFiles(Storage::PrepareMediaFromImage(std::move(targetImage),
+															std::move(targetArray),
+															st::sendMediaPreviewSize));
+					_list.overrideSendImagesAsPhotos = false;
+					initSendWay();
+
+					send({}, false);
+				},
+				&st::menuIconStickers);
+		}
 		_menu->popup(position);
 		return true;
 	});
@@ -1689,6 +1727,20 @@ bool SendFilesBox::validateLength(const QString &text) const {
 void SendFilesBox::send(
 		Api::SendOptions options,
 		bool ctrlShiftEnter) {
+	// AyuGram useScheduledMessages
+	const auto settings = &AyuSettings::getInstance();
+	if (settings->useScheduledMessages && !options.scheduled) {
+		DEBUG_LOG(("[AyuGram] Scheduling files"));
+		const auto sumSize = ranges::accumulate(
+			_list.files,
+			0,
+			[](int sum, const auto &file) {
+				return sum + file.size;
+			});
+		auto current = base::unixtime::now();
+		options.scheduled = current + getScheduleTime(sumSize);
+	}
+
 	if ((_sendType == Api::SendType::Scheduled
 		|| _sendType == Api::SendType::ScheduledToUser)
 		&& !options.scheduled) {

@@ -36,6 +36,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h" // attentionBoxButton
 #include "styles/style_menu_icons.h"
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace Window {
 namespace {
 
@@ -160,11 +164,17 @@ void FiltersMenu::setup() {
 void FiltersMenu::setupMainMenuIcon() {
 	OtherAccountsUnreadState(
 	) | rpl::start_with_next([=](const OthersUnreadState &state) {
-		const auto icon = !state.count
+		auto icon = !state.count
 			? nullptr
 			: !state.allMuted
 			? &st::windowFiltersMainMenuUnread
 			: &st::windowFiltersMainMenuUnreadMuted;
+
+		const auto settings = &AyuSettings::getInstance();
+		if (settings->hideNotificationCounters) {
+			icon = nullptr;
+		}
+
 		_menu.setIconOverride(icon, icon);
 	}, _outer.lifetime());
 }
@@ -196,6 +206,9 @@ void FiltersMenu::scrollToButton(not_null<Ui::RpWidget*> widget) {
 }
 
 void FiltersMenu::refresh() {
+	// AyuGram hideAllChatsFolder
+	const auto settings = &AyuSettings::getInstance();
+
 	const auto filters = &_session->session().data().chatsFilters();
 	if (!filters->has() || _ignoreRefresh) {
 		return;
@@ -316,8 +329,15 @@ base::unique_qptr<Ui::SideBarButton> FiltersMenu::prepareButton(
 			&_session->session(),
 			id
 		) | rpl::start_with_next([=](const Dialogs::UnreadState &state) {
-			const auto count = (state.chats + state.marks);
-			const auto muted = (state.chatsMuted + state.marksMuted);
+			auto count = (state.chats + state.marks);
+			auto muted = (state.chatsMuted + state.marksMuted);
+
+			const auto settings = &AyuSettings::getInstance();
+			if (settings->hideNotificationCounters) {
+				count = 0;
+				muted = 0;
+			}
+
 			const auto string = !count
 				? QString()
 				: (count > 99)
@@ -585,6 +605,9 @@ void FiltersMenu::applyReorder(
 	if (newPosition == oldPosition) {
 		return;
 	}
+
+	// AyuGram hideAllChatsFolder
+	const auto settings = &AyuSettings::getInstance();
 
 	const auto filters = &_session->session().data().chatsFilters();
 	const auto &list = filters->list();

@@ -64,6 +64,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QSvgRenderer>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+
+
 namespace InlineBots {
 namespace {
 
@@ -511,6 +515,11 @@ void BotAction::handleKeyPress(not_null<QKeyEvent*> e) {
 	if (key == Qt::Key_Enter || key == Qt::Key_Return) {
 		setClicked(Ui::Menu::TriggeredSource::Keyboard);
 	}
+}
+
+QString WebviewPlatform() {
+	const auto settings = &AyuSettings::getInstance();
+	return settings->spoofWebviewAsAndroid ? "android" : "tdesktop";
 }
 
 } // namespace

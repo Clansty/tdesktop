@@ -70,6 +70,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QtGui/QWindow>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "boxes/peers/edit_participants_box.h"
+#include "data/data_chat_filters.h"
+#include "history/admin_log/history_admin_log_section.h"
+#include "styles/style_ayu_styles.h"
+
+
 namespace HistoryView {
 namespace {
 
@@ -120,6 +128,7 @@ TopBarWidget::TopBarWidget(
 , _forwardNoQuote(this, GetEnhancedBool("show_emoji_button_as_text") ? tr::lng_selected_forward_no_quote_text() : tr::lng_selected_forward_no_quote_emoji(), st::defaultActiveButton)
 , _savedMessages(this, GetEnhancedBool("show_emoji_button_as_text") ? tr::lng_forward_to_saved_message_text() : tr::lng_forward_to_saved_message_emoji(), st::defaultActiveButton)
 , _oldForward(this, GetEnhancedBool("show_emoji_button_as_text") ? tr::lng_selected_forward_text_classic() : tr::lng_selected_forward_emoji_classic(), st::defaultActiveButton)
+, _messageShot(this, tr::ayu_MessageShotTopBarText(), st::defaultActiveButton)
 , _back(this, st::historyTopBarBack)
 , _cancelChoose(this, st::topBarCloseChoose)
 , _call(this, st::topBarCall)
@@ -129,6 +138,8 @@ TopBarWidget::TopBarWidget(
 , _admins(this, st::topBarAdmins)
 , _infoToggle(this, st::topBarInfo)
 , _menuToggle(this, st::topBarMenuToggle)
+, _recentActions(this, st::topBarRecentActions)
+, _admins(this, st::topBarAdmins)
 , _titlePeerText(st::windowMinWidth / 3)
 , _onlineUpdater([=] { updateOnlineDisplay(); }) {
 	setAttribute(Qt::WA_OpaquePaintEvent);
@@ -150,6 +161,8 @@ TopBarWidget::TopBarWidget(
 	_sendNow->setWidthChangedCallback([=] { updateControlsGeometry(); });
 	_delete->setClickedCallback([=] { _deleteSelection.fire({}); });
 	_delete->setWidthChangedCallback([=] { updateControlsGeometry(); });
+	_messageShot->setClickedCallback([=] { _messageShotSelection.fire({}); });
+	_messageShot->setWidthChangedCallback([=] { updateControlsGeometry(); });
 	_clear->setClickedCallback([=] { _clearSelection.fire({}); });
 	_call->setClickedCallback([=] { call(); });
 	_groupCall->setClickedCallback([=] { groupCall(); });
@@ -165,6 +178,21 @@ TopBarWidget::TopBarWidget(
 					ParticipantsBoxController::Role::Admins);
 	});
 	_infoToggle->setClickedCallback([=] { toggleInfoSection(); });
+
+	_recentActions->setClickedCallback([=]
+	{
+		const auto channel = _activeChat.key.peer()->asChannel();
+		_controller->showSection(std::make_shared<AdminLog::SectionMemento>(channel));
+	});
+	_admins->setClickedCallback([=]
+	{
+		ParticipantsBoxController::Start(
+			controller,
+			_activeChat.key.peer(),
+			ParticipantsBoxController::Role::Admins
+		);
+	});
+
 	_back->setAcceptBoth();
 	_back->addClickHandler([=](Qt::MouseButton) {
 		InvokeQueued(_back.data(), [=] { backClicked(); });
@@ -997,6 +1025,7 @@ void TopBarWidget::updateControlsGeometry() {
 	auto buttonsWidth = (_forward->isHidden() ? 0 : _forward->contentWidth())
 		+ (_sendNow->isHidden() ? 0 : _sendNow->contentWidth())
 		+ (_delete->isHidden() ? 0 : _delete->contentWidth())
+		+ (_messageShot->isHidden() ? 0 : _messageShot->contentWidth())
 		+ _clear->width();
 	buttonsWidth += buttonsLeft + st::topBarActionSkip * 3;
 
@@ -1013,6 +1042,7 @@ void TopBarWidget::updateControlsGeometry() {
 	_savedMessages->setFullWidth(buttonFullWidth);
 	_sendNow->setFullWidth(buttonFullWidth);
 	_delete->setFullWidth(buttonFullWidth);
+	_messageShot->setFullWidth(buttonFullWidth);
 
 	selectedButtonsTop += (height() - _forward->height()) / 2;
 
@@ -1044,6 +1074,12 @@ void TopBarWidget::updateControlsGeometry() {
 	}
 
 	_delete->moveToLeft(buttonsLeft, selectedButtonsTop);
+	if (!_delete->isHidden()) {
+		buttonsLeft += _delete->width() + st::topBarActionSkip;
+	}
+
+	_messageShot->moveToLeft(buttonsLeft, selectedButtonsTop);
+
 	_clear->moveToRight(st::topBarActionSkip, selectedButtonsTop);
 
 	if (!_cancelChoose->isHidden()) {
@@ -1130,6 +1166,16 @@ void TopBarWidget::updateControlsGeometry() {
 		_groupCall->moveToRight(_rightTaken, otherButtonsTop);
 		_rightTaken += _call->width();
 	}
+
+	_recentActions->moveToRight(_rightTaken, otherButtonsTop);
+	if (!_recentActions->isHidden()) {
+		_rightTaken += _recentActions->width();
+	}
+	_admins->moveToRight(_rightTaken, otherButtonsTop);
+	if (!_admins->isHidden()) {
+		_rightTaken += _admins->width();
+	}
+
 	_search->moveToRight(_rightTaken, otherButtonsTop);
 	if (!_search->isHidden()) {
 		_rightTaken += _search->width() + st::topBarCallSkip;
@@ -1159,8 +1205,12 @@ void TopBarWidget::updateControlsVisibility() {
 		hideChildren();
 		return;
 	}
+
+	const auto settings = &AyuSettings::getInstance();
+
 	_clear->show();
 	_delete->setVisible(_canDelete);
+	_messageShot->setVisible(settings->showMessageShot);
 	_forward->setVisible(_canForward);
 	_forwardNoQuote->setVisible(_canForward);
 	_savedMessages->setVisible(_canForward);
@@ -1382,6 +1432,7 @@ void TopBarWidget::showSelected(SelectedState state) {
 		_savedMessages->setNumbersText(_selectedCount);
 		_sendNow->setNumbersText(_selectedCount);
 		_delete->setNumbersText(_selectedCount);
+		_messageShot->setNumbersText(_selectedCount);
 		if (!wasSelectedState) {
 			if (!GetEnhancedBool("hide_classic_fwd")) {
 				_oldForward->finishNumbersAnimation();
@@ -1391,6 +1442,7 @@ void TopBarWidget::showSelected(SelectedState state) {
 			_savedMessages->finishNumbersAnimation();
 			_sendNow->finishNumbersAnimation();
 			_delete->finishNumbersAnimation();
+			_messageShot->finishNumbersAnimation();
 		}
 	}
 	if (visibilityChanged) {
