@@ -25,7 +25,6 @@
 #include "styles/style_settings.h"
 #include "styles/style_widgets.h"
 
-#include "icon_picker.h"
 #include "tray.h"
 #include "core/application.h"
 #include "main/main_domain.h"
@@ -605,31 +604,6 @@ void SetupSpyEssentials(not_null<Ui::VerticalLayout*> container) {
 		container->lifetime());
 }
 
-void SetupMessageFilters(not_null<Ui::VerticalLayout*> container) {
-	auto settings = &AyuSettings::getInstance();
-
-	AddSubsectionTitle(container, tr::ayu_RegexFilters());
-
-	AddButtonWithIcon(
-		container,
-		tr::ayu_FiltersHideFromBlocked(),
-		st::settingsButtonNoIcon
-	)->toggleOn(
-		rpl::single(settings->hideFromBlocked)
-	)->toggledValue(
-	) | rpl::filter(
-		[=](bool enabled)
-		{
-			return (enabled != settings->hideFromBlocked);
-		}) | start_with_next(
-		[=](bool enabled)
-		{
-			settings->set_hideFromBlocked(enabled);
-			AyuSettings::save();
-		},
-		container->lifetime());
-}
-
 void SetupQoLToggles(not_null<Ui::VerticalLayout*> container) {
 	auto settings = &AyuSettings::getInstance();
 
@@ -650,25 +624,6 @@ void SetupQoLToggles(not_null<Ui::VerticalLayout*> container) {
 		[=](bool enabled)
 		{
 			settings->set_disableAds(enabled);
-			AyuSettings::save();
-		},
-		container->lifetime());
-
-	AddButtonWithIcon(
-		container,
-		tr::ayu_DisableStories(),
-		st::settingsButtonNoIcon
-	)->toggleOn(
-		rpl::single(settings->disableStories)
-	)->toggledValue(
-	) | rpl::filter(
-		[=](bool enabled)
-		{
-			return (enabled != settings->disableStories);
-		}) | start_with_next(
-		[=](bool enabled)
-		{
-			settings->set_disableStories(enabled);
 			AyuSettings::save();
 		},
 		container->lifetime());
@@ -771,12 +726,6 @@ void SetupQoLToggles(not_null<Ui::VerticalLayout*> container) {
 			AyuSettings::save();
 		},
 		container->lifetime());
-}
-
-void SetupAppIcon(not_null<Ui::VerticalLayout*> container) {
-	container->add(
-		object_ptr<IconPicker>(container),
-		st::settingsCheckboxPadding);
 }
 
 void SetupContextMenuElements(not_null<Ui::VerticalLayout*> container,
@@ -1042,52 +991,6 @@ void SetupShowPeerId(not_null<Ui::VerticalLayout*> container,
 		});
 }
 
-void SetupRecentStickersLimitSlider(not_null<Ui::VerticalLayout*> container) {
-	auto settings = &AyuSettings::getInstance();
-
-	container->add(
-		object_ptr<Button>(container,
-						   tr::ayu_SettingsRecentStickersCount(),
-						   st::settingsButtonNoIcon)
-	)->setAttribute(Qt::WA_TransparentForMouseEvents);
-
-	auto recentStickersLimitSlider = MakeSliderWithLabel(
-		container,
-		st::autoDownloadLimitSlider,
-		st::settingsScaleLabel,
-		0,
-		st::settingsScaleLabel.style.font->width("8%%"));
-	container->add(std::move(recentStickersLimitSlider.widget), st::recentStickersLimitPadding);
-	const auto slider = recentStickersLimitSlider.slider;
-	const auto label = recentStickersLimitSlider.label;
-
-	const auto updateLabel = [=](int amount)
-	{
-		label->setText(QString::number(amount));
-	};
-	updateLabel(settings->recentStickersCount);
-
-	slider->setPseudoDiscrete(
-		100 + 1,
-		// thx tg
-		[=](int amount)
-		{
-			return amount;
-		},
-		settings->recentStickersCount,
-		[=](int amount)
-		{
-			updateLabel(amount);
-		},
-		[=](int amount)
-		{
-			updateLabel(amount);
-
-			settings->set_recentStickersCount(amount);
-			AyuSettings::save();
-		});
-}
-
 void SetupFonts(not_null<Ui::VerticalLayout*> container, not_null<Window::SessionController*> controller) {
 	const auto settings = &AyuSettings::getInstance();
 
@@ -1252,48 +1155,6 @@ void SetupFolderSettings(not_null<Ui::VerticalLayout*> container, not_null<Windo
 		},
 		container->lifetime());
 #endif
-
-	AddButtonWithIcon(
-		container,
-		tr::ayu_HideAllChats(),
-		st::settingsButtonNoIcon
-	)->toggleOn(
-		rpl::single(settings->hideAllChatsFolder)
-	)->toggledValue(
-	) | rpl::filter(
-		[=](bool enabled)
-		{
-			return (enabled != settings->hideAllChatsFolder);
-		}) | start_with_next(
-		[=](bool enabled)
-		{
-			settings->set_hideAllChatsFolder(enabled);
-			AyuSettings::save();
-		},
-		container->lifetime());
-}
-
-void SetupChannelSettings(not_null<Ui::VerticalLayout*> container, not_null<Window::SessionController*> controller) {
-	auto settings = &AyuSettings::getInstance();
-
-	const auto options = std::vector{
-		tr::ayu_ChannelBottomButtonHide(tr::now),
-		tr::ayu_ChannelBottomButtonMute(tr::now),
-		tr::ayu_ChannelBottomButtonDiscuss(tr::now),
-	};
-
-	AddChooseButtonWithIconAndRightText(
-		container,
-		controller,
-		settings->channelBottomButton,
-		options,
-		tr::ayu_ChannelBottomButton(),
-		tr::ayu_ChannelBottomButton(),
-		[=](int index)
-		{
-			settings->set_channelBottomButton(index);
-			AyuSettings::save();
-		});
 }
 
 void SetupNerdSettings(not_null<Ui::VerticalLayout*> container, not_null<Window::SessionController*> controller) {
@@ -1388,8 +1249,6 @@ void SetupCustomization(not_null<Ui::VerticalLayout*> container,
 						not_null<Window::SessionController*> controller) {
 	AddSubsectionTitle(container, tr::ayu_CustomizationHeader());
 
-	SetupAppIcon(container);
-
 	AddDivider(container);
 	AddSkip(container);
 
@@ -1399,18 +1258,7 @@ void SetupCustomization(not_null<Ui::VerticalLayout*> container,
 	AddDivider(container);
 	AddSkip(container);
 
-	SetupRecentStickersLimitSlider(container);
-
-	AddSkip(container);
-	AddDivider(container);
-	AddSkip(container);
-
 	SetupFolderSettings(container, controller);
-	AddSkip(container);
-	AddDivider(container);
-
-	AddSkip(container);
-	SetupChannelSettings(container, controller);
 	AddSkip(container);
 	AddDivider(container);
 
@@ -1437,12 +1285,6 @@ void SetupAyuGramSettings(not_null<Ui::VerticalLayout*> container,
 
 	AddSkip(container);
 	SetupSpyEssentials(container);
-	AddSkip(container);
-
-	AddDivider(container);
-
-	AddSkip(container);
-	SetupMessageFilters(container);
 	AddSkip(container);
 
 	AddDivider(container);

@@ -6,8 +6,6 @@
 // Copyright @Radolyn, 2024
 #include "ayu_settings.h"
 
-#include "ayu/ui/ayu_logo.h"
-
 #include "lang_auto.h"
 #include "core/application.h"
 
@@ -222,7 +220,6 @@ AyuGramSettings::AyuGramSettings() {
 	localPremium = false;
 
 	// ~ Customization
-	appIcon = AyuAssets::DEFAULT_ICON;
 	simpleQuotesAndReplies = true;
 	deletedMark = "🧹";
 	editedMark = Core::IsAppLaunched() ? tr::lng_edited(tr::now) : QString("edited");

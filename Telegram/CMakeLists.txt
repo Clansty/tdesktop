@@ -112,14 +112,8 @@ set(ayugram_files
         ayu/utils/qt_key_modifiers_extended.h
         ayu/utils/telegram_helpers.cpp
         ayu/utils/telegram_helpers.h
-        ayu/utils/windows_utils.cpp
-        ayu/utils/windows_utils.h
-        ayu/ui/ayu_logo.cpp
-        ayu/ui/ayu_logo.h
         ayu/ui/utils/ayu_profile_values.cpp
         ayu/ui/utils/ayu_profile_values.h
-        ayu/ui/settings/icon_picker.cpp
-        ayu/ui/settings/icon_picker.h
         ayu/ui/settings/settings_ayu.cpp
         ayu/ui/settings/settings_ayu.h
         ayu/ui/context_menu/context_menu.cpp
