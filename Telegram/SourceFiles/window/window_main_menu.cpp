@@ -183,9 +183,20 @@ void ShowCallsBox(not_null<Window::SessionController*> window) {
 
 [[nodiscard]] rpl::producer<TextWithEntities> SetStatusLabel(
 		not_null<Main::Session*> session) {
-	return tr::ayu_AyuPreferences() | rpl::map([](const QString& text) {
-		return Ui::Text::Link(text);
-	});
+	const auto self = session->user();
+	return session->changes().peerFlagsValue(
+		self,
+		Data::PeerUpdate::Flag::EmojiStatus
+	) | rpl::map([=] {
+		return (self->emojiStatusId() != 0);
+	}) | rpl::distinct_until_changed() | rpl::map([](bool has) {
+		const auto makeLink = [](const QString &text) {
+			return Ui::Text::Link(text);
+		};
+		return (has
+			? tr::lng_menu_change_status
+			: tr::lng_menu_set_status)(makeLink);
+	}) | rpl::flatten_latest();
 }
 
 } // namespace
@@ -690,7 +701,7 @@ void MainMenu::setupAccountsToggle() {
 
 void MainMenu::setupSetEmojiStatus() {
 	_setEmojiStatus->overrideLinkClickHandler([=] {
-		_controller->showSettings(Settings::Ayu::Id());
+		chooseEmojiStatus();
 	});
 }
 

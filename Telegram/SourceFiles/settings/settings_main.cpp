@@ -147,7 +147,7 @@ Cover::Cover(
 	_name->setContextCopyText(tr::lng_profile_copy_fullname(tr::now));
 
 	_phone->setSelectable(true);
-	_phone->setContextCopyText(tr::ayu_ContextCopyID(tr::now));
+	_phone->setContextCopyText(tr::lng_profile_copy_phone(tr::now));
 
 	initViewers();
 	setupChildGeometry();
@@ -200,16 +200,23 @@ void Cover::initViewers() {
 		refreshNameGeometry(width());
 	}, lifetime());
 
-	IDValue(
-		_user
-	) | rpl::start_with_next([=](const TextWithEntities &value) {
-		if (GetEnhancedBool("show_phone_number")) {
+	// 侧边栏的开关切换显示手机号还是 ID
+	if (GetEnhancedBool("show_phone_number")) {
+		Info::Profile::PhoneValue(
+			_user
+		) | rpl::start_with_next([=](const TextWithEntities &value) {
 			_phone->setText(value.text);
-		} else {
-			_phone->setText(tr::lng_info_mobile_hidden(tr::now));
-		}
-		refreshPhoneGeometry(width());
-	}, lifetime());
+			refreshPhoneGeometry(width());
+		}, lifetime());
+	}
+	else {
+		IDValue(
+			_user
+		) | rpl::start_with_next([=](const TextWithEntities &value) {
+			_phone->setText(value.text);
+			refreshPhoneGeometry(width());
+		}, lifetime());
+	}
 
 	Info::Profile::UsernameValue(
 		_user
@@ -399,13 +406,6 @@ void SetupSections(
 	};
 
 	Ui::AddSkip(container);
-	addSection(
-		tr::ayu_AyuPreferences(),
-		Ayu::Id(),
-        { .icon = &st::menuIconPremium });
-	Ui::AddSkip(container);
-	Ui::AddDivider(container);
-    Ui::AddSkip(container);
 
 	if (controller->session().supportMode()) {
 		SetupSupport(controller, container);
@@ -483,14 +483,21 @@ void SetupSections(
 		tr::lng_settings_section_devices(),
 		Calls::Id(),
 		{ &st::menuIconUnmute });
-	addSection(
-		tr::lng_settings_enhanced(),
-		Enhanced::Id(),
-		{ &st::menuIconManage });
 
 	SetupPowerSavingButton(&controller->window(), container);
 	SetupLanguageButton(&controller->window(), container);
 
+	Ui::AddSkip(container);
+	Ui::AddDivider(container);
+    Ui::AddSkip(container);
+	addSection(
+		tr::lng_settings_enhanced(),
+		Enhanced::Id(),
+		{ &st::menuIconManage });
+	addSection(
+		tr::ayu_AyuPreferences(),
+		Ayu::Id(),
+        { .icon = &st::menuIconPremium });
 	Ui::AddSkip(container);
 }
 
