@@ -546,4 +546,6 @@ private:
 	int _scrollDateLastItemTop = 0;
 	ClickHandlerPtr _scrollDateLink;
 
+	bool _wasForceClickPreview = false;
+
 };

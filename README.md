@@ -10,13 +10,4 @@ Provide some 0wOw0wowOw0wOwo features over 64Gram.
 
 No Roadmap? Yes.
 
-## [Features](features.md)
-
-## Supported systems
-
-Windows 7 and above
-
-Linux 64 bit
-
-macOS > 10.12 and above
 

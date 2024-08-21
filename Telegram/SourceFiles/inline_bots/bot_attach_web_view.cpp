@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_file_origin.h"
 #include "data/data_document.h"
 #include "data/data_document_media.h"
+#include "data/data_peer_bot_command.h"
 #include "data/data_session.h"
 #include "data/data_web_page.h"
 #include "main/main_app_config.h"
@@ -852,7 +853,7 @@ void WebViewInstance::requestButton() {
 		MTP_bytes(_button.url),
 		MTP_string(_button.startCommand),
 		MTP_dataJSON(MTP_bytes(botThemeParams().json)),
-		MTP_string("tdesktop"),
+		MTP_string(WebviewPlatform()),
 		action.mtpReplyTo(),
 		(action.options.sendAs
 			? action.options.sendAs->input
@@ -885,7 +886,7 @@ void WebViewInstance::requestSimple() {
 		MTP_bytes(_button.url),
 		MTP_string(_button.startCommand),
 		MTP_dataJSON(MTP_bytes(botThemeParams().json)),
-		MTP_string("tdesktop")
+		MTP_string(WebviewPlatform())
 	)).done([=](const MTPWebViewResult &result) {
 		show(qs(result.data().vurl()));
 	}).fail([=](const MTP::Error &error) {
@@ -910,7 +911,7 @@ void WebViewInstance::requestMain() {
 		_bot->inputUser,
 		MTP_string(_button.startCommand),
 		MTP_dataJSON(MTP_bytes(botThemeParams().json)),
-		MTP_string("tdesktop")
+		MTP_string(WebviewPlatform())
 	)).done([=](const MTPWebViewResult &result) {
 		show(qs(result.data().vurl()));
 	}).fail([=](const MTP::Error &error) {
@@ -934,7 +935,7 @@ void WebViewInstance::requestApp(bool allowWrite) {
 		MTP_inputBotAppID(MTP_long(app->id), MTP_long(app->accessHash)),
 		MTP_string(_appStartParam),
 		MTP_dataJSON(MTP_bytes(botThemeParams().json)),
-		MTP_string("tdesktop")
+		MTP_string(WebviewPlatform())
 	)).done([=](const MTPWebViewResult &result) {
 		_requestId = 0;
 		show(qs(result.data().vurl()));
@@ -1225,7 +1226,7 @@ void WebViewInstance::botHandleMenuButton(
 		}
 		break;
 	case Button::RemoveFromMenu:
-	case Button::RemoveFromMainMenu:
+	case Button::RemoveFromMainMenu: {
 		const auto &bots = _session->attachWebView().attachBots();
 		const auto attached = ranges::find(
 			bots,
@@ -1257,7 +1258,19 @@ void WebViewInstance::botHandleMenuButton(
 					Ui::Text::WithEntities),
 			done,
 		}));
-		break;
+	} break;
+	case Button::ShareGame: {
+		const auto itemId = v::is<WebViewSourceGame>(_source)
+			? v::get<WebViewSourceGame>(_source).messageId
+			: FullMsgId();
+		if (!_panel || !itemId) {
+			return;
+		} else if (const auto item = _session->data().message(itemId)) {
+			FastShareMessage(uiShow(), item);
+		} else {
+			_panel->showToast({ tr::lng_message_not_found(tr::now) });
+		}
+	} break;
 	}
 }
 
@@ -1392,16 +1405,57 @@ void WebViewInstance::botInvokeCustomMethod(
 	}).send();
 }
 
-void WebViewInstance::botShareGameScore() {
-	const auto itemId = v::is<WebViewSourceGame>(_source)
-		? v::get<WebViewSourceGame>(_source).messageId
-		: FullMsgId();
-	if (!_panel || !itemId) {
-		return;
-	} else if (const auto item = _session->data().message(itemId)) {
-		FastShareMessage(uiShow(), item);
-	} else {
-		_panel->showToast({ tr::lng_message_not_found(tr::now) });
+void WebViewInstance::botOpenPrivacyPolicy() {
+	const auto bot = _bot;
+	const auto weak = _context.controller;
+	const auto command = u"privacy"_q;
+	const auto findCommand = [=] {
+		if (!bot->isBot()) {
+			return QString();
+		}
+		for (const auto &data : bot->botInfo->commands) {
+			const auto isSame = !data.command.compare(
+				command,
+				Qt::CaseInsensitive);
+			if (isSame) {
+				return data.command;
+			}
+		}
+		return QString();
+	};
+	const auto makeOtherContext = [=](bool forceWindow) {
+		return QVariant::fromValue(ClickHandlerContext{
+			.sessionWindow = (forceWindow
+				? WindowForThread(weak, bot->owner().history(bot))
+				: weak),
+			.peer = bot,
+		});
+	};
+	const auto sendCommand = [=] {
+		const auto original = findCommand();
+		if (original.isEmpty()) {
+			return false;
+		}
+		BotCommandClickHandler('/' + original).onClick(ClickContext{
+			Qt::LeftButton,
+			makeOtherContext(true)
+		});
+		return true;
+	};
+	const auto openUrl = [=](const QString &url) {
+		Core::App().iv().openWithIvPreferred(
+			&_bot->session(),
+			url,
+			makeOtherContext(false));
+	};
+	if (const auto info = _bot->botInfo.get()) {
+		if (!info->privacyPolicyUrl.isEmpty()) {
+			openUrl(info->privacyPolicyUrl);
+			return;
+		}
+	}
+	if (!sendCommand()) {
+		openUrl(tr::lng_profile_bot_privacy_url(tr::now));
 	}
 }
 

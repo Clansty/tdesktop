@@ -94,6 +94,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ayu_settings.h"
+#include "ayu/utils/taptic_engine/taptic_engine.h"
 
 
 namespace Dialogs {
@@ -1054,6 +1055,7 @@ void Widget::setupStories() {
 			storiesToggleExplicitExpand(true);
 			_scroll->setOverscrollDefaults(0, 0);
 		} else {
+			TapticEngine::generateLevelChange();
 			_scroll->setOverscrollDefaults(
 				-st::dialogsStoriesFull.height,
 				0);
