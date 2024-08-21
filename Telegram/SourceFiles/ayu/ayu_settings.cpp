@@ -212,20 +212,20 @@ AyuGramSettings::AyuGramSettings() {
 	// ~ QoL toggles
 	disableAds = true;
 	disableStories = false;
-	disableCustomBackgrounds = true;
+	disableCustomBackgrounds = false;
 	collapseSimilarChannels = true;
 	hideSimilarChannels = false;
 
 	spoofWebviewAsAndroid = false;
-	increaseWebviewHeight = false;
-	increaseWebviewWidth = false;
+	increaseWebviewHeight = true;
+	increaseWebviewWidth = true;
 
 	disableNotificationsDelay = false;
 	localPremium = false;
 
 	// ~ Customization
-	simpleQuotesAndReplies = true;
-	deletedMark = "🧹";
+	simpleQuotesAndReplies = false;
+	deletedMark = "🗑️";
 	editedMark = Core::IsAppLaunched() ? tr::lng_edited(tr::now) : QString("edited");
 	recentStickersCount = 100;
 
@@ -242,10 +242,10 @@ AyuGramSettings::AyuGramSettings() {
 	showLReadToggleInDrawer = false;
 	showSReadToggleInDrawer = true;
 	showGhostToggleInDrawer = true;
-	showStreamerToggleInDrawer = false;
+	showStreamerToggleInDrawer = true;
 
 	showGhostToggleInTray = true;
-	showStreamerToggleInTray = false;
+	showStreamerToggleInTray = true;
 
 	monoFont = "";
 

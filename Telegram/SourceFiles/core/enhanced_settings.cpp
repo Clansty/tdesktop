@@ -297,9 +297,9 @@ namespace EnhancedSettings {
 
 		auto settings = QJsonObject();
 		settings.insert(qsl("net_speed_boost"), 0);
-		settings.insert(qsl("net_dl_speed_boost"), false);
+		settings.insert(qsl("net_dl_speed_boost"), true);
 		settings.insert(qsl("show_messages_id"), false);
-		settings.insert(qsl("show_repeater_option"), false);
+		settings.insert(qsl("show_repeater_option"), true);
 		settings.insert(qsl("show_emoji_button_as_text"), false);
 		settings.insert(qsl("always_delete_for"), 0);
 		settings.insert(qsl("show_phone_number"), true);
@@ -320,7 +320,7 @@ namespace EnhancedSettings {
 		settings.insert(qsl("blocked_hana_spoiler_mode"), false);
 		settings.insert(qsl("disable_premium_animation"), false);
 		settings.insert(qsl("disable_global_search"), false);
-		settings.insert(qsl("show_group_sender_avatar"), false);
+		settings.insert(qsl("show_group_sender_avatar"), true);
 		settings.insert(qsl("show_seconds"), false);
 		settings.insert(qsl("hide_counter"), false);
 		settings.insert(qsl("translate_to_tc"), false);
