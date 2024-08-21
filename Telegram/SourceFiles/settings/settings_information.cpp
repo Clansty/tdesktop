@@ -465,22 +465,6 @@ void SetupRows(
 		controller->showToast(tr::lng_text_copied(tr::now), 500);
 	};
 
-	const auto showChangePhone = [=]
-	{
-		controller->show(Ui::MakeInformBox(tr::lng_change_phone_error()));
-		controller->window().activate();
-	};
-
-	if (GetEnhancedBool("show_phone_number")) {
-		AddRow(
-			container,
-			tr::lng_settings_phone_label(),
-			Info::Profile::PhoneValue(self),
-			tr::lng_profile_copy_phone(tr::now),
-			showChangePhone,
-			{ &st::menuIconPhone });
-	}
-
 	AddRow(container,
 		   tr::lng_settings_phone_label(),
 		   Info::Profile::PhoneValue(self),
