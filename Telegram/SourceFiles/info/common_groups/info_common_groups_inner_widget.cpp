@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/search_field_controller.h"
 #include "data/data_user.h"
 #include "data/data_session.h"
+#include "data/data_channel.h"
 #include "styles/style_info.h"
 #include "styles/style_widgets.h"
 
