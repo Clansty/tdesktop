@@ -1249,9 +1249,6 @@ void SetupCustomization(not_null<Ui::VerticalLayout*> container,
 						not_null<Window::SessionController*> controller) {
 	AddSubsectionTitle(container, tr::ayu_CustomizationHeader());
 
-	AddDivider(container);
-	AddSkip(container);
-
 	SetupMarks(container);
 
 	AddSkip(container);
