@@ -1422,6 +1422,10 @@ bool Element::displayFastReply() const {
 	return false;
 }
 
+bool Element::displayFastForward() const {
+	return false;
+}
+
 std::optional<QSize> Element::rightActionSize() const {
 	return std::nullopt;
 }

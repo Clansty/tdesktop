@@ -1389,8 +1389,10 @@ TextState WebPage::textState(QPoint point, StateRequest request) const {
 			tshift += _attach->height();
 		}
 	}
-	if ((!result.link || (sponsored && !hasSponsoredMedia))
-		&& outer.contains(point)) {
+	//if ((!result.link || (sponsored && !hasSponsoredMedia))
+	//	result.link = _openl;
+	//}
+	if (_data->iv || sponsored && outer.contains(point)) {
 		result.link = _openl;
 	}
 	if (const auto hint = hintData()) {

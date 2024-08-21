@@ -42,9 +42,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/painter.h"
 #include "window/window_session_controller.h"
 #include "apiwrap.h"
+#include "base/qt/qt_key_modifiers.h"
+#include "main/main_account.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
 #include "styles/style_dialogs.h"
+#include "window/window_peer_menu.h"
 
 // AyuGram includes
 #include "ayu/features/messageshot/message_shot.h"
@@ -346,6 +349,10 @@ int KeyboardStyle::minButtonWidth(
 
 QString FastReplyText() {
 	return tr::lng_fast_reply(tr::now);
+}
+
+QString FastForwardText() {
+	return tr::lng_selected_forward(tr::now);
 }
 
 [[nodiscard]] ClickHandlerPtr MakeTopicButtonLink(
@@ -1336,6 +1343,7 @@ void Message::draw(Painter &p, const PaintContext &context) const {
 		} else {
 			paintFromName(p, trect, context);
 			paintTopicButton(p, trect, context);
+			validateForwardedNameText(item);
 			paintForwardedInfo(p, trect, context);
 			paintViaBotIdInfo(p, trect, context);
 			paintReplyInfo(p, trect, context);
@@ -1518,6 +1526,10 @@ void Message::draw(Painter &p, const PaintContext &context) const {
 			}
 		}
 	}
+
+	if (GetEnhancedBool("screenshot_mode") != _previousMode) {
+		_previousMode = GetEnhancedBool("screenshot_mode"); // Update the previous mode
+	}
 }
 
 void Message::paintCommentsButton(
@@ -1660,8 +1672,10 @@ void Message::paintFromName(
 	const auto badgeWidth = _rightBadge.isEmpty() ? 0 :
 		_rightBadgeIsChannel ? context.messageStyle()->channelBadgeIcon.width() : _rightBadge.maxWidth();
 	const auto replyWidth = [&] {
-		if (isUnderCursor() && displayFastReply()) {
-			return st::msgFont->width(FastReplyText());
+		if (isUnderCursor() && (displayFastReply() || displayFastForward())) {
+			return st::msgFont->width(displayFastForward()
+				? FastForwardText()
+				: FastReplyText());
 		}
 		return 0;
 	}();
@@ -1751,13 +1765,15 @@ void Message::paintFromName(
 	if (rightWidth) {
 		p.setPen(stm->msgDateFg);
 		if (replyWidth) {
-			p.setFont(ClickHandler::showAsActive(_fastReplyLink)
+			const auto activeLink = displayFastForward() ? _fastForwardLink : _fastReplyLink;
+			const auto text = displayFastForward() ? FastForwardText() : FastReplyText();
+			p.setFont(ClickHandler::showAsActive(activeLink)
 				? st::msgFont->underline()
 				: st::msgFont);
 			p.drawText(
 				trect.left() + trect.width() - rightWidth,
 				trect.top() + st::msgFont->ascent,
-				FastReplyText());
+				text);
 		} else {
 			if (_rightBadgeIsChannel) {
 				stm->channelBadgeIcon.paint(
@@ -2651,8 +2667,10 @@ bool Message::getStateFromName(
 		return false;
 	}
 	const auto replyWidth = [&] {
-		if (isUnderCursor() && displayFastReply()) {
-			return st::msgFont->width(FastReplyText());
+		if (isUnderCursor() && (displayFastReply() || displayFastForward())) {
+			return st::msgFont->width(displayFastForward()
+				? FastForwardText()
+				: FastReplyText());
 		}
 		return 0;
 	}();
@@ -2661,7 +2679,7 @@ bool Message::getStateFromName(
 		&& point.x() < trect.left() + trect.width() + st::msgPadding.right()
 		&& point.y() >= trect.top() - st::msgPadding.top()
 		&& point.y() < trect.top() + st::msgServiceFont->height) {
-		outResult->link = fastReplyLink();
+		outResult->link = displayFastForward() ? fastForwardLink() : fastReplyLink();
 		return true;
 	}
 	if (point.y() >= trect.top() && point.y() < trect.top() + st::msgNameFont->height) {
@@ -3389,7 +3407,7 @@ void Message::validateFromNameText(PeerData *from) const {
 		return;
 	}
 	const auto version = from->nameVersion();
-	if (_fromNameVersion < version) {
+	if (_fromNameVersion < version || GetEnhancedBool("screenshot_mode") != _previousMode) {
 		_fromNameVersion = version;
 		_fromName.setText(
 			st::msgNameStyle,
@@ -3408,6 +3426,14 @@ void Message::validateFromNameText(PeerData *from) const {
 		}
 	} else if (_fromNameStatus) {
 		_fromNameStatus = nullptr;
+	}
+}
+
+void Message::validateForwardedNameText(HistoryItem *item) const {
+	const auto forwarded = item->Get<HistoryMessageForwarded>();
+	const auto via = item->Get<HistoryMessageVia>();
+	if (forwarded && GetEnhancedBool("screenshot_mode") != _previousMode) {
+		forwarded->create(via, item);
 	}
 }
 
@@ -3444,6 +3470,9 @@ void Message::refreshDataIdHook() {
 	}
 	if (base::take(_fastReplyLink)) {
 		_fastReplyLink = fastReplyLink();
+	}
+	if (base::take(_fastForwardLink)) {
+		_fastForwardLink = fastForwardLink();
 	}
 	if (_viewButton) {
 		_viewButton = nullptr;
@@ -3732,6 +3761,15 @@ bool Message::displayFastReply() const {
 		&& !delegate()->elementInSelectionMode();
 }
 
+bool Message::displayFastForward() const {
+	const auto peer = data()->history()->peer;
+	return (peer->isChat() || peer->isMegagroup())
+		&& data()->isRegular()
+		&& data()->allowsForward()
+		&& base::IsCtrlPressed()
+		&& !delegate()->elementInSelectionMode();
+}
+
 bool Message::displayRightActionComments() const {
 	return !isPinnedContext()
 		&& (context() != Context::SavedSublist)
@@ -4005,6 +4043,18 @@ ClickHandlerPtr Message::fastReplyLink() const {
 		delegate()->elementReplyTo({ itemId });
 	});
 	return _fastReplyLink;
+}
+
+ClickHandlerPtr Message::fastForwardLink() const {
+	if (_fastForwardLink) {
+		return _fastForwardLink;
+	}
+	const auto itemId = data()->fullId();
+	_fastForwardLink = std::make_shared<LambdaClickHandler>([=](ClickContext context) {
+		const auto my = context.other.value<ClickHandlerContext>();
+		ShowForwardMessagesBox(my.sessionWindow.get(), { 1, itemId }, nullptr);
+	});
+	return _fastForwardLink;
 }
 
 bool Message::isPinnedContext() const {

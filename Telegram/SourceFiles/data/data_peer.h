@@ -515,6 +515,8 @@ private:
 	crl::time _lastFullUpdate = 0;
 
 	QString _name;
+	mutable QString _fakeName = QString();
+	int _randomNumber = 0;
 	uint32 _nameVersion : 30 = 1;
 	uint32 _sensitiveContent : 1 = 0;
 	uint32 _wallPaperOverriden : 1 = 0;
@@ -534,6 +536,8 @@ private:
 	QString _about;
 	QString _themeEmoticon;
 	std::unique_ptr<Data::WallPaper> _wallPaper;
+
+	mutable bool _previousMode;
 
 };
 

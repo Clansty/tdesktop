@@ -130,6 +130,7 @@ public:
 	int minWidthForMedia() const override;
 	bool hasFastReply() const override;
 	bool displayFastReply() const override;
+	bool displayFastForward() const override;
 	bool displayRightActionComments() const;
 	std::optional<QSize> rightActionSize() const override;
 	void drawRightAction(
@@ -281,6 +282,7 @@ private:
 	[[nodiscard]] bool displayFastShare() const;
 	[[nodiscard]] bool displayGoToOriginal() const;
 	[[nodiscard]] ClickHandlerPtr fastReplyLink() const;
+	[[nodiscard]] ClickHandlerPtr fastForwardLink() const;
 	[[nodiscard]] ClickHandlerPtr prepareRightActionLink() const;
 
 	void ensureRightAction() const;
@@ -303,9 +305,11 @@ private:
 	void refreshRightBadge();
 	void refreshReactions();
 	void validateFromNameText(PeerData *from) const;
+	void validateForwardedNameText(HistoryItem *item) const;
 
 	mutable std::unique_ptr<RightAction> _rightAction;
 	mutable ClickHandlerPtr _fastReplyLink;
+	mutable ClickHandlerPtr _fastForwardLink;
 	mutable std::unique_ptr<ViewButton> _viewButton;
 	std::unique_ptr<Reactions::InlineList> _reactions;
 	std::unique_ptr<TopicButton> _topicButton;
@@ -313,6 +317,7 @@ private:
 
 	mutable Ui::Text::String _fromName;
 	mutable std::unique_ptr<FromNameStatus> _fromNameStatus;
+	mutable bool _previousMode = false;
 	Ui::Text::String _rightBadge;
 	mutable int _fromNameVersion = 0;
 	uint32 _bubbleWidthLimit : 28 = 0;
